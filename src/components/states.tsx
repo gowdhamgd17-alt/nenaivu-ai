@@ -1,5 +1,6 @@
 import { AlertTriangle, RotateCw } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useI18n } from '@/i18n/I18nProvider'
 import { cn } from '@/lib/utils'
 import { Button } from './ui/button'
 
@@ -32,10 +33,11 @@ interface LoadingStateProps {
 }
 
 /** Skeleton rows with an accessible status label. */
-export function LoadingState({ label = 'Loading', rows = 3, className }: LoadingStateProps) {
+export function LoadingState({ label, rows = 3, className }: LoadingStateProps) {
+  const { t } = useI18n()
   return (
     <div role="status" aria-live="polite" className={cn('space-y-3 p-5', className)}>
-      <span className="sr-only">{label}…</span>
+      <span className="sr-only">{label ?? t('state.loading')}…</span>
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-center gap-3">
           <div className="size-8 shrink-0 animate-pulse rounded-full bg-subtle" />
@@ -56,17 +58,18 @@ interface ErrorStateProps {
   className?: string
 }
 
-export function ErrorState({ title = 'Could not load this view', message, onRetry, className }: ErrorStateProps) {
+export function ErrorState({ title, message, onRetry, className }: ErrorStateProps) {
+  const { t } = useI18n()
   return (
     <div role="alert" className={cn('flex flex-col items-center px-6 py-14 text-center', className)}>
       <div className="mb-3 flex size-10 items-center justify-center rounded-full bg-danger-soft text-danger">
         <AlertTriangle className="size-5" aria-hidden />
       </div>
-      <p className="text-sm font-medium text-ink">{title}</p>
+      <p className="text-sm font-medium text-ink">{title ?? t('state.loadErrorTitle')}</p>
       <p className="mt-1 max-w-sm text-sm text-ink-muted">{message}</p>
       {onRetry && (
         <Button variant="secondary" size="sm" className="mt-4" onClick={onRetry}>
-          <RotateCw aria-hidden /> Try again
+          <RotateCw aria-hidden /> {t('common.tryAgain')}
         </Button>
       )}
     </div>

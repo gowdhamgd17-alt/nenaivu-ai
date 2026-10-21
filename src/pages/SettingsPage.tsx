@@ -7,11 +7,16 @@ import { useToast } from '@/components/Toaster'
 import { Button } from '@/components/ui/button'
 import { SectionCard } from '@/components/ui/card'
 import { WorkspaceView } from '@/components/WorkspaceView'
+import { AnswerLanguageSelect, VoiceLanguageSelect } from '@/features/voice/LanguageControls'
+import { LANGS, type Lang } from '@/i18n/config'
+import { useI18n } from '@/i18n/I18nProvider'
+import { cn } from '@/lib/utils'
 import { prototypeControls, resetMockData } from '@/services/mock/mockApi'
 import { useAppStore } from '@/store/AppStore'
 
 export function SettingsPage() {
   const { user, workspaces, activeWorkspaceId, reload } = useAppStore()
+  const { t } = useI18n()
   const ws = workspaces.find((w) => w.id === activeWorkspaceId)
   const toast = useToast()
   const [latency, setLatency] = useState(prototypeControls.latency)
@@ -20,34 +25,38 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Workspace, account and prototype controls." />
+      <PageHeader title={t('nav.settings')} description={t('settings.desc')} />
       <div className="grid gap-6 lg:grid-cols-2">
-        <SectionCard title="Workspace" description="Switch workspaces from the header.">
+        <SectionCard title={t('settings.language')} description={t('settings.languageDesc')} className="lg:col-span-2">
+          <div className="grid gap-5 p-5 md:grid-cols-3">
+            <InterfaceLanguageRadios />
+            <VoiceLanguageSelect />
+            <AnswerLanguageSelect />
+          </div>
+        </SectionCard>
+
+        <SectionCard title={t('settings.workspace')} description={t('settings.workspaceDesc')}>
           <dl className="divide-y divide-line text-sm">
-            <Row label="Name" value={ws?.name} />
-            <Row label="Description" value={ws?.industry} />
-            <Row label="Data isolation" value="Records are loaded per workspace and never shown in another." />
+            <Row label={t('settings.name')} value={ws?.name} />
+            <Row label={t('settings.description')} value={ws?.industry} />
+            <Row label={t('settings.isolation')} value={t('settings.isolationValue')} />
           </dl>
         </SectionCard>
 
-        <SectionCard title="Account">
+        <SectionCard title={t('settings.account')}>
           <dl className="divide-y divide-line text-sm">
-            <Row label="Name" value={user?.name} />
-            <Row label="Email" value={user?.email} />
-            <Row label="Sign-in" value="Not connected — prototype uses a mock user." />
+            <Row label={t('settings.name')} value={user?.name} />
+            <Row label={t('settings.email')} value={user?.email} />
+            <Row label={t('settings.signIn')} value={t('settings.signInValue')} />
           </dl>
         </SectionCard>
 
-        <SectionCard
-          title="Prototype controls"
-          description="For testing loading and error states. These do not exist in the real product."
-          action={<FlaskConical className="size-4 text-primary" aria-hidden />}
-        >
+        <SectionCard title={t('settings.prototype')} description={t('settings.prototypeDesc')} action={<FlaskConical className="size-4 shrink-0 text-primary" aria-hidden />}>
           <div className="divide-y divide-line">
             <Toggle
               id="latency"
-              label="Simulate network latency"
-              hint="Adds realistic delays so loading states are visible."
+              label={t('settings.latency')}
+              hint={t('settings.latencyHint')}
               checked={latency}
               onChange={(v) => {
                 prototypeControls.latency = v
@@ -56,8 +65,8 @@ export function SettingsPage() {
             />
             <Toggle
               id="fail"
-              label="Make service requests fail"
-              hint="Capture, approval, Ask and reloads will return an error until switched off."
+              label={t('settings.fail')}
+              hint={t('settings.failHint')}
               checked={fail}
               onChange={(v) => {
                 prototypeControls.failNextRequests = v
@@ -66,35 +75,65 @@ export function SettingsPage() {
             />
             <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-medium text-ink">Reset sample data</p>
-                <p className="text-xs text-ink-muted">Restores the original mock records in every workspace.</p>
+                <p className="text-sm font-medium text-ink">{t('settings.reset')}</p>
+                <p className="text-xs text-ink-muted">{t('settings.resetHint')}</p>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => setResetOpen(true)}>
-                <RotateCcw aria-hidden /> Reset
+              <Button variant="secondary" size="sm" onClick={() => setResetOpen(true)} className="self-start sm:self-auto">
+                <RotateCcw aria-hidden /> {t('settings.resetButton')}
               </Button>
             </div>
           </div>
         </SectionCard>
 
-        <SectionCard title="Activity history" description="Approvals, rejections and status changes in this workspace">
-          <WorkspaceView>{(data) => <div className="max-h-96 overflow-y-auto"><ActivityList events={data.activity} /></div>}</WorkspaceView>
+        <SectionCard title={t('settings.activity')} description={t('settings.activityDesc')}>
+          <WorkspaceView>
+            {(data) => (
+              <div className="max-h-96 overflow-y-auto">
+                <ActivityList events={data.activity} />
+              </div>
+            )}
+          </WorkspaceView>
         </SectionCard>
       </div>
 
       <ConfirmationDialog
         open={resetOpen}
         onOpenChange={setResetOpen}
-        title="Reset sample data?"
-        description="Everything you captured, approved or changed in this session will be discarded."
-        confirmLabel="Reset data"
+        title={t('settings.resetTitle')}
+        description={t('settings.resetDesc')}
+        confirmLabel={t('settings.resetConfirm')}
         tone="danger"
         onConfirm={() => {
           resetMockData()
           reload()
-          toast({ tone: 'neutral', message: 'Sample data restored.' })
+          toast({ tone: 'neutral', message: t('settings.resetToast') })
         }}
       />
     </>
+  )
+}
+
+function InterfaceLanguageRadios() {
+  const { t, lang, setLang } = useI18n()
+  return (
+    <fieldset className="min-w-0">
+      <legend className="mb-1 text-sm font-medium text-ink">{t('settings.interfaceLanguage')}</legend>
+      <div className="grid grid-cols-2 gap-2">
+        {(Object.keys(LANGS) as Lang[]).map((code) => (
+          <label
+            key={code}
+            className={cn(
+              'flex h-10 cursor-pointer items-center justify-center rounded-input border px-3 text-sm font-medium has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-primary/15',
+              lang === code ? 'border-primary bg-primary-soft/60 text-primary-ink' : 'border-line text-ink hover:bg-subtle',
+            )}
+          >
+            <input type="radio" name="interface-language" value={code} checked={lang === code} onChange={() => setLang(code)} className="sr-only" />
+            <span lang={LANGS[code].locale}>{LANGS[code].nativeName}</span>
+          </label>
+        ))}
+      </div>
+      <p className="mt-1 text-xs text-ink-muted">{t('language.savedNote')}</p>
+    </fieldset>
   )
 }
 
@@ -110,7 +149,7 @@ function Row({ label, value }: { label: string; value?: string }) {
 function Toggle({ id, label, hint, checked, onChange }: { id: string; label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <div className="flex items-center justify-between gap-4 px-5 py-4">
-      <div>
+      <div className="min-w-0">
         <label htmlFor={id} className="text-sm font-medium text-ink">
           {label}
         </label>

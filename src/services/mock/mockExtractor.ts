@@ -6,19 +6,23 @@
  *   unambiguous relative day ("today", "tomorrow", "within 3 days").
  * - Weekday names, "next week", "end of the month", "soon" etc. are returned as
  *   `ambiguous` so the reviewer must choose a date. Nothing is invented.
- * - Explains uncertainty in words; never produces confidence percentages.
+ * - Explains uncertainty as codes rendered in words; never confidence percentages.
+ * - Understands English notes only. Notes mainly in Tamil become one memory proposal.
  */
 import { addDays, parseISODate, toISODate } from '@/lib/dates'
+import { isMostlyTamil } from '@/lib/language'
 import { createId, truncate } from '@/lib/utils'
 import type {
   Capture,
   Commitment,
   CommitmentDirection,
+  DeadlineReason,
   ISODate,
   Memory,
   Person,
   Proposal,
   ProposedDeadline,
+  Uncertainty,
 } from '@/types/models'
 
 interface ExtractContext {
@@ -114,32 +118,32 @@ export function detectDeadline(sentence: string, today: ISODate): ProposedDeadli
         kind: 'exact',
         date: toISODate(candidate),
         phrase: parts.phrase,
-        note: parts.year ? undefined : `Year not stated — taken as the next ${parts.phrase} (${year}).`,
+        note: parts.year ? undefined : { code: 'year_assumed', params: { phrase: parts.phrase, year } },
       }
     }
   }
 
-  if (/\b(today|tonight|eod|end of day)\b/.test(s)) return { kind: 'exact', date: today, phrase: 'today', note: 'Resolved from "today" relative to the capture date.' }
-  if (/\btomorrow\b/.test(s)) return { kind: 'exact', date: addDays(today, 1), phrase: 'tomorrow', note: 'Resolved from "tomorrow" relative to the capture date.' }
+  if (/\b(today|tonight|eod|end of day)\b/.test(s)) return { kind: 'exact', date: today, phrase: 'today', note: { code: 'resolved_today' } }
+  if (/\btomorrow\b/.test(s)) return { kind: 'exact', date: addDays(today, 1), phrase: 'tomorrow', note: { code: 'resolved_tomorrow' } }
 
   const within = s.match(/\bwithin\s+(\d+|one|two|three|four|five|six|seven|ten|fourteen)\s+days?\b/)
   if (within) {
     const n = Number.isNaN(+within[1]) ? NUMBER_WORDS[within[1]] : +within[1]
-    return { kind: 'exact', date: addDays(today, n), phrase: within[0], note: `Counted ${n} calendar days from the capture date.` }
+    return { kind: 'exact', date: addDays(today, n), phrase: within[0], note: { code: 'counted_days', params: { count: n } } }
   }
 
   const weekday = WEEKDAYS.find((d) => new RegExp(`\\b${d}\\b`).test(s))
   if (weekday) {
     const phrase = s.match(new RegExp(`\\b(?:by|on|before|this|next|until)?\\s*(?:this |next )?${weekday}\\b`))?.[0].trim() ?? weekday
-    return { kind: 'ambiguous', phrase, reason: `It is not clear which ${weekday[0].toUpperCase() + weekday.slice(1)} is meant.` }
+    return { kind: 'ambiguous', phrase, reason: { code: 'weekday', weekday: WEEKDAYS.indexOf(weekday) } }
   }
 
-  const vague: [RegExp, string][] = [
-    [/\b(?:by\s+)?end of (?:the |this )?month\b/, 'Could mean the last calendar day or the last working day of the month.'],
-    [/\b(?:by\s+)?end of (?:the |this )?week\b/, 'Could mean Friday or the weekend.'],
-    [/\bnext week\b/, 'No specific day was given.'],
-    [/\bnext month\b/, 'No specific day was given.'],
-    [/\b(?:asap|as soon as possible|soon|shortly|in a few days|later)\b/, 'This does not identify a date.'],
+  const vague: [RegExp, DeadlineReason][] = [
+    [/\b(?:by\s+)?end of (?:the |this )?month\b/, { code: 'month_end' }],
+    [/\b(?:by\s+)?end of (?:the |this )?week\b/, { code: 'week_end' }],
+    [/\bnext week\b/, { code: 'no_day' }],
+    [/\bnext month\b/, { code: 'no_day' }],
+    [/\b(?:asap|as soon as possible|soon|shortly|in a few days|later)\b/, { code: 'not_a_date' }],
   ]
   for (const [re, reason] of vague) {
     const m = s.match(re)
@@ -185,6 +189,27 @@ export function extractProposals(ctx: ExtractContext): Proposal[] {
   const base = { workspaceId: capture.workspaceId, captureId: capture.id, status: 'pending' as const, createdAt: capture.createdAt }
   const proposals: Proposal[] = []
 
+  // The rules below only understand English. A note written mainly in Tamil is kept
+  // whole as one memory proposal instead of producing wrong extractions.
+  if (isMostlyTamil(capture.content)) {
+    return [
+      {
+        ...base,
+        id: createId('pr'),
+        recordType: 'memory',
+        sourceExcerpt: capture.content,
+        fields: {
+          title: truncate(sentences[0]?.replace(/[.!?]+$/, '') ?? capture.content, 80),
+          summary: capture.content.trim(),
+          deadline: { kind: 'none' },
+          direction: 'we_owe',
+          partyKind: 'person',
+        },
+        uncertainties: [{ code: 'non_english_note' }],
+      },
+    ]
+  }
+
   const mentionedKnown = people.filter((p) => mentions(capture.content, p))
   const newNames = unknownNames(capture.content, people)
 
@@ -197,7 +222,7 @@ export function extractProposals(ctx: ExtractContext): Proposal[] {
       continue
     }
 
-    const uncertainties: string[] = []
+    const uncertainties: Uncertainty[] = []
     const linked = mentionedKnown.find((p) => mentions(sentence, p))
     const unknown = newNames.find((n) => sentence.includes(n.name))
     let personId = linked?.id
@@ -206,17 +231,16 @@ export function extractProposals(ctx: ExtractContext): Proposal[] {
     if (!linked && !unknown && /\b(he|she|they)\b/i.test(sentence) && mentionedKnown.filter((p) => p.kind === 'person').length === 1) {
       const only = mentionedKnown.find((p) => p.kind === 'person')!
       personId = only.id
-      uncertainties.push(`"${sentence.match(/\b(he|she|they)\b/i)![0]}" was assumed to refer to ${only.name}.`)
+      uncertainties.push({ code: 'pronoun_assumed', params: { pronoun: sentence.match(/\b(he|she|they)\b/i)![0], name: only.name } })
     }
     if (linked && linked.kind === 'person' && !new RegExp(`\\b${escapeRegExp(linked.name)}\\b`, 'i').test(sentence)) {
       const sameFirst = people.filter((p) => p.kind === 'person' && p.name.split(' ')[0] === linked.name.split(' ')[0])
+      const short = linked.name.split(' ')[0]
       uncertainties.push(
-        sameFirst.length > 1
-          ? `"${linked.name.split(' ')[0]}" matches more than one contact — check the person.`
-          : `"${linked.name.split(' ')[0]}" was matched to ${linked.name}.`,
+        sameFirst.length > 1 ? { code: 'name_ambiguous', params: { short } } : { code: 'name_matched', params: { short, name: linked.name } },
       )
     }
-    if (personName) uncertainties.push(`${personName} is not yet a confirmed contact.`)
+    if (personName) uncertainties.push({ code: 'not_confirmed_contact', params: { name: personName } })
 
     let direction: CommitmentDirection = 'we_owe'
     const subject = sentence.trim().split(/\s+/)[0]?.toLowerCase() ?? ''
@@ -225,11 +249,11 @@ export function extractProposals(ctx: ExtractContext): Proposal[] {
     } else if (/\b(he|she|they)\s+(will|'ll|promised|agreed)\b/i.test(sentence) || (linked && sentence.indexOf(linked.name.split(' ')[0]) <= 2)) {
       direction = 'owed_to_us'
     } else {
-      uncertainties.push('It is unclear who is responsible — check the direction.')
+      uncertainties.push({ code: 'direction_unclear' })
     }
 
     const deadline = detectDeadline(sentence, today)
-    if (deadline.kind === 'none') uncertainties.push('No deadline was mentioned.')
+    if (deadline.kind === 'none') uncertainties.push({ code: 'no_deadline' })
     if (deadline.kind === 'exact' && deadline.note) uncertainties.push(deadline.note)
 
     const title = cleanTitle(sentence)
@@ -267,11 +291,7 @@ export function extractProposals(ctx: ExtractContext): Proposal[] {
         direction: 'we_owe',
         partyKind: n.kind,
       },
-      uncertainties: [
-        n.kind === 'organisation'
-          ? 'Detected as an organisation from its name — confirm the type.'
-          : 'Detected from capitalised words — confirm this is a person.',
-      ],
+      uncertainties: [{ code: n.kind === 'organisation' ? 'org_detected' : 'person_detected' }],
     })
   }
 
@@ -295,7 +315,7 @@ export function extractProposals(ctx: ExtractContext): Proposal[] {
         direction: 'we_owe',
         partyKind: 'person',
       },
-      uncertainties: memoryText.length > 1 ? ['Several sentences were combined into one memory — consider splitting.'] : [],
+      uncertainties: memoryText.length > 1 ? [{ code: 'combined_sentences' }] : [],
       possibleDuplicateOf: dupe ? { recordType: 'memory', id: dupe.id } : undefined,
     })
   }

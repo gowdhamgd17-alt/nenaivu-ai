@@ -1,6 +1,6 @@
 import { BookOpen, FileText } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { relativeTime } from '@/lib/dates'
+import { useI18n } from '@/i18n/I18nProvider'
 import type { Memory } from '@/types/models'
 
 interface MemoryCardProps {
@@ -10,13 +10,14 @@ interface MemoryCardProps {
 }
 
 export function MemoryCard({ memory, peopleLabel, variant = 'card' }: MemoryCardProps) {
+  const { t, fmt } = useI18n()
   const meta = (
     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
-      <span>Confirmed {relativeTime(memory.confirmedAt)}</span>
+      <span>{t('memoryCard.confirmed', { time: fmt.relative(memory.confirmedAt) })}</span>
       {peopleLabel && <span className="truncate">{peopleLabel}</span>}
       <span className="inline-flex items-center gap-1">
         <FileText className="size-3" aria-hidden />
-        {memory.sourceCaptureId ? 'Source linked' : 'No source recorded'}
+        {memory.sourceCaptureId ? t('source.linked') : t('source.none')}
       </span>
     </div>
   )

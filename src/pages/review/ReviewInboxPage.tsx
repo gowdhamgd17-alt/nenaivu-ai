@@ -8,7 +8,9 @@ import { EmptyState, LoadingState, Notice } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { WorkspaceView } from '@/components/WorkspaceView'
-import { cn, pluralise } from '@/lib/utils'
+import { useI18n } from '@/i18n/I18nProvider'
+import type { MessageKey } from '@/i18n/messages/en'
+import { cn } from '@/lib/utils'
 import type { WorkspaceData } from '@/services'
 import { personLabel } from '@/store/selectors'
 import type { Proposal } from '@/types/models'
@@ -17,10 +19,10 @@ import { ProposalReview } from './ProposalReview'
 type TypeFilter = 'all' | 'commitment' | 'person'
 type StatusFilter = 'pending' | 'resolved'
 
-const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
-  { value: 'all', label: 'All proposals' },
-  { value: 'commitment', label: 'Commitments' },
-  { value: 'person', label: 'People' },
+const TYPE_FILTERS: { value: TypeFilter; labelKey: MessageKey }[] = [
+  { value: 'all', labelKey: 'review.filterAll' },
+  { value: 'commitment', labelKey: 'review.filterCommitments' },
+  { value: 'person', labelKey: 'review.filterPeople' },
 ]
 
 function useIsDesktop() {
@@ -36,14 +38,15 @@ function useIsDesktop() {
 }
 
 export function ReviewInboxPage() {
+  const { t } = useI18n()
   return (
     <>
-      <PageHeader title="Capture & Review" description="Approve what should be remembered. Rejected proposals never become records." />
+      <PageHeader title={t('nav.capture')} description={t('review.desc')} />
       <CaptureTabs />
       <WorkspaceView
         loading={
           <Card>
-            <LoadingState label="Loading proposals" rows={5} />
+            <LoadingState label={t('review.loading')} rows={5} />
           </Card>
         }
       >
@@ -59,6 +62,7 @@ function Inbox_({ data }: { data: WorkspaceData }) {
   const navigate = useNavigate()
   const location = useLocation()
   const isDesktop = useIsDesktop()
+  const { t, fmt } = useI18n()
 
   const type = (params.get('type') as TypeFilter) || 'all'
   const statusFilter = (params.get('status') as StatusFilter) || 'pending'
@@ -121,17 +125,15 @@ function Inbox_({ data }: { data: WorkspaceData }) {
     <Notice
       tone={capturedCount > 0 ? 'success' : 'neutral'}
       icon={<CheckCircle2 />}
-      title="Capture saved"
+      title={t('review.savedTitle')}
       className="mb-4"
       action={
-        <button onClick={() => setParams((p) => (p.delete('capture'), p), { replace: true })} aria-label="Dismiss" className="text-ink-faint hover:text-ink">
+        <button onClick={() => setParams((p) => (p.delete('capture'), p), { replace: true })} aria-label={t('common.dismiss')} className="text-ink-faint hover:text-ink">
           <X className="size-4" />
         </button>
       }
     >
-      {capturedCount > 0
-        ? `${pluralise(capturedCount, 'proposal')} drafted from your note — listed first. Review each before it becomes a record.`
-        : 'No commitments, people or facts were detected. The original text is still stored.'}
+      {capturedCount > 0 ? t('review.savedSome', { count: capturedCount }) : t('review.savedNone')}
     </Notice>
   )
 
@@ -144,11 +146,11 @@ function Inbox_({ data }: { data: WorkspaceData }) {
       <Card>
         <EmptyState
           icon={<Inbox />}
-          title="Proposal not found in this workspace"
-          description="It may belong to a different workspace or no longer exist."
+          title={t('review.notFoundTitle')}
+          description={t('review.notFoundDesc')}
           action={
             <Button asChild variant="secondary" size="sm">
-              <Link to="/capture/review">Back to inbox</Link>
+              <Link to="/capture/review">{t('review.backToInbox')}</Link>
             </Button>
           }
         />
@@ -163,23 +165,23 @@ function Inbox_({ data }: { data: WorkspaceData }) {
         {showList && (
           <Card className="overflow-hidden lg:sticky lg:top-[calc(var(--spacing-header)+2rem)]">
             <div className="space-y-3 border-b border-line p-3">
-              <div role="group" aria-label="Filter by type" className="flex gap-1 overflow-x-auto">
+              <div role="group" aria-label={t('review.filterType')} className="flex gap-1 overflow-x-auto">
                 {TYPE_FILTERS.map((f) => (
                   <button
                     key={f.value}
                     onClick={() => setFilter('type', f.value)}
                     aria-pressed={type === f.value}
                     className={cn(
-                      'inline-flex shrink-0 items-center gap-1.5 rounded-input px-2.5 py-1.5 text-sm font-medium transition-colors',
+                      'inline-flex shrink-0 items-center gap-1.5 rounded-input px-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
                       type === f.value ? 'bg-ink text-white' : 'text-ink-muted hover:bg-subtle hover:text-ink',
                     )}
                   >
-                    {f.label}
-                    {statusFilter === 'pending' && <span className={cn('tabular text-xs', type === f.value ? 'text-white/70' : 'text-ink-faint')}>{counts[f.value]}</span>}
+                    {t(f.labelKey)}
+                    {statusFilter === 'pending' && <span className={cn('tabular text-xs', type === f.value ? 'text-white/70' : 'text-ink-faint')}>{fmt.number(counts[f.value])}</span>}
                   </button>
                 ))}
               </div>
-              <div role="group" aria-label="Filter by status" className="grid grid-cols-2 rounded-input bg-subtle p-0.5 text-xs font-medium">
+              <div role="group" aria-label={t('review.filterStatus')} className="grid grid-cols-2 rounded-input bg-subtle p-0.5 text-xs font-medium">
                 {(['pending', 'resolved'] as const).map((s) => (
                   <button
                     key={s}
@@ -187,7 +189,7 @@ function Inbox_({ data }: { data: WorkspaceData }) {
                     aria-pressed={statusFilter === s}
                     className={cn('rounded-[6px] py-1.5 transition-colors', statusFilter === s ? 'bg-surface text-ink shadow-card' : 'text-ink-muted hover:text-ink')}
                   >
-                    {s === 'pending' ? 'Awaiting review' : 'Resolved'}
+                    {s === 'pending' ? t('review.awaiting') : t('review.resolved')}
                   </button>
                 ))}
               </div>
@@ -197,21 +199,21 @@ function Inbox_({ data }: { data: WorkspaceData }) {
                 <EmptyState
                   compact
                   icon={<CheckCircle2 />}
-                  title={type === 'all' ? 'All caught up' : `No ${type === 'person' ? 'people' : 'commitment'} proposals waiting`}
-                  description="New captures will create proposals here."
+                  title={type === 'all' ? t('review.allCaught') : type === 'person' ? t('review.nonePeople') : t('review.noneCommitment')}
+                  description={t('review.newWillAppear')}
                   action={
                     <Button asChild size="sm" variant="secondary">
                       <Link to="/capture/new">
-                        <Plus aria-hidden /> New capture
+                        <Plus aria-hidden /> {t('review.newCapture')}
                       </Link>
                     </Button>
                   }
                 />
               ) : (
-                <EmptyState compact icon={<Inbox />} title="Nothing resolved yet" description="Approved and rejected proposals are listed here." />
+                <EmptyState compact icon={<Inbox />} title={t('review.nothingResolved')} description={t('review.nothingResolvedDesc')} />
               )
             ) : (
-              <ul className="max-h-[calc(100dvh-280px)] divide-y divide-line overflow-y-auto" aria-label="Proposals">
+              <ul className="max-h-[calc(100dvh-280px)] divide-y divide-line overflow-y-auto" aria-label={t('review.listLabel')}>
                 {list.map((p) => (
                   <ReviewProposalCard key={p.id} proposal={p} personLabel={personLabel(data, p.fields.personId)} to={linkFor(p.id)} selected={p.id === proposalId} />
                 ))}
@@ -227,7 +229,7 @@ function Inbox_({ data }: { data: WorkspaceData }) {
                 {!isDesktop && (
                   <div className="border-b border-line px-5 py-3">
                     <Link to={`/capture/review${qs}`} className="text-sm font-medium text-primary hover:underline">
-                      ← All proposals
+                      ← {t('review.backToList')}
                     </Link>
                   </div>
                 )}
@@ -236,8 +238,8 @@ function Inbox_({ data }: { data: WorkspaceData }) {
             ) : (
               <EmptyState
                 icon={list.length ? <MousePointerClick /> : <CheckCircle2 />}
-                title={list.length ? 'Select a proposal' : 'Nothing to review'}
-                description={list.length ? 'Choose a proposal from the list to see its source and approve or reject it.' : 'Your confirmation inbox is empty.'}
+                title={list.length ? t('review.selectTitle') : t('review.emptyTitle')}
+                description={list.length ? t('review.selectDesc') : t('review.emptyDesc')}
               />
             )}
           </Card>

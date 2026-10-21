@@ -1,5 +1,6 @@
 import { FlaskConical, Plus } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
+import { useI18n } from '@/i18n/I18nProvider'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/AppStore'
 import { pendingProposals } from '@/store/selectors'
@@ -23,6 +24,7 @@ interface AppSidebarProps {
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const { pathname } = useLocation()
   const { data } = useAppStore()
+  const { t, fmt } = useI18n()
   const pendingCount = data ? pendingProposals(data).length : 0
 
   return (
@@ -35,12 +37,12 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
       <div className="px-3 pb-3">
         <Button asChild className="w-full justify-start">
           <Link to="/capture/new" onClick={onNavigate}>
-            <Plus aria-hidden /> Quick Capture
+            <Plus aria-hidden /> {t('nav.quickCapture')}
           </Link>
         </Button>
       </div>
 
-      <nav aria-label="Main" className="flex-1 overflow-y-auto px-3">
+      <nav aria-label={t('nav.main')} className="flex-1 overflow-y-auto px-3">
         <ul className="space-y-0.5">
           {NAV_ITEMS.map((item) => {
             const active = isNavActive(item, pathname)
@@ -57,11 +59,11 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
                   )}
                 >
                   <Icon className={cn('size-4 shrink-0', active ? 'text-primary' : 'text-ink-faint')} aria-hidden />
-                  <span className="flex-1 truncate">{item.label}</span>
+                  <span className="min-w-0 flex-1 leading-snug break-words">{t(item.labelKey)}</span>
                   {item.to === '/capture/review' && pendingCount > 0 && (
                     <span className="tabular rounded-full bg-primary px-1.5 py-px text-[11px] font-semibold text-white">
-                      <span className="sr-only">Pending: </span>
-                      {pendingCount}
+                      <span className="sr-only">{t('nav.pendingSr')} </span>
+                      {fmt.number(pendingCount)}
                     </span>
                   )}
                 </Link>
@@ -73,9 +75,9 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
 
       <div className="m-3 rounded-input border border-line bg-canvas p-3 text-xs text-ink-muted">
         <p className="flex items-center gap-1.5 font-medium text-ink">
-          <FlaskConical className="size-3.5 text-primary" aria-hidden /> Prototype
+          <FlaskConical className="size-3.5 text-primary" aria-hidden /> {t('sidebar.prototype')}
         </p>
-        <p className="mt-1 leading-relaxed">Mock data and simulated processing. Changes reset when the page reloads.</p>
+        <p className="mt-1 leading-relaxed">{t('sidebar.prototypeNote')}</p>
       </div>
     </div>
   )

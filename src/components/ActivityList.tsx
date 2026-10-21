@@ -1,5 +1,6 @@
-import { Check, FilePlus2, History, RefreshCw, X, CalendarClock } from 'lucide-react'
-import { formatDateTime } from '@/lib/dates'
+import { CalendarClock, Check, FilePlus2, History, RefreshCw, X } from 'lucide-react'
+import { activityText } from '@/i18n/domain'
+import { useI18n } from '@/i18n/I18nProvider'
 import type { ActivityEvent } from '@/types/models'
 import { EmptyState } from './states'
 
@@ -11,8 +12,9 @@ const icons: Record<ActivityEvent['type'], React.ReactNode> = {
   commitment_due_date_changed: <CalendarClock />,
 }
 
-export function ActivityList({ events, empty = 'No activity recorded yet.' }: { events: ActivityEvent[]; empty?: string }) {
-  if (events.length === 0) return <EmptyState compact icon={<History />} title={empty} />
+export function ActivityList({ events, empty }: { events: ActivityEvent[]; empty?: string }) {
+  const { t, fmt } = useI18n()
+  if (events.length === 0) return <EmptyState compact icon={<History />} title={empty ?? t('activity.empty')} />
   return (
     <ol className="divide-y divide-line">
       {events.map((e) => (
@@ -21,9 +23,9 @@ export function ActivityList({ events, empty = 'No activity recorded yet.' }: { 
             {icons[e.type]}
           </span>
           <div className="min-w-0">
-            <p className="text-sm text-ink">{e.message}</p>
+            <p className="text-sm break-words text-ink">{activityText(e, t, fmt)}</p>
             <time dateTime={e.at} className="text-xs text-ink-muted">
-              {formatDateTime(e.at)}
+              {fmt.dateTime(e.at)}
             </time>
           </div>
         </li>

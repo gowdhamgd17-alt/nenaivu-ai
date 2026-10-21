@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/inter';
+/* Tamil glyphs: bundled so Tamil renders consistently even where no system Tamil font exists.
+   The font's unicode-range means it only downloads when Tamil text is on screen. */
+@import '@fontsource-variable/noto-sans-tamil';
 
 /*
  * Nenaivu AI design tokens.
@@ -7,7 +10,8 @@
  * (e.g. bg-surface, text-ink-muted, border-line, rounded-card).
  */
 @theme {
-  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter Variable', 'Inter', 'Noto Sans Tamil Variable', 'Noto Sans Tamil', 'Nirmala UI', 'Tamil Sangam MN', 'Latha', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Noto Sans Tamil Variable', 'Nirmala UI', monospace;
 
   --color-primary: #4f46e5;
   --color-primary-hover: #4338ca;
@@ -56,6 +60,16 @@
   ::selection {
     background: var(--color-primary-soft);
   }
+}
+
+/* Tamil script has tall vowel signs above and below the line; give text a little more room
+   so marks are never clipped in tight UI (badges, tabs, buttons). */
+:lang(ta) body {
+  line-height: 1.6;
+}
+:lang(ta) .leading-tight,
+:lang(ta) .leading-snug {
+  line-height: 1.5;
 }
 
 @utility tabular {

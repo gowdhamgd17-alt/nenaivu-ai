@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import { useI18n } from '@/i18n/I18nProvider'
 import { Dialog, SheetContent } from '../ui/dialog'
 import { AppHeader } from './AppHeader'
 import { AppSidebar } from './AppSidebar'
@@ -7,6 +8,7 @@ import { AppSidebar } from './AppSidebar'
 export function AppLayout() {
   const [navOpen, setNavOpen] = useState(false)
   const { pathname } = useLocation()
+  const { t } = useI18n()
 
   // Move focus to main content and scroll to top on route change.
   useEffect(() => {
@@ -19,7 +21,7 @@ export function AppLayout() {
         href="#main"
         className="sr-only z-50 rounded-input bg-surface px-3 py-2 text-sm font-medium shadow-pop focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
       >
-        Skip to content
+        {t('app.skipToContent')}
       </a>
 
       <aside className="fixed inset-y-0 left-0 hidden w-sidebar border-r border-line bg-surface lg:block">
@@ -27,7 +29,7 @@ export function AppLayout() {
       </aside>
 
       <Dialog open={navOpen} onOpenChange={setNavOpen}>
-        <SheetContent title="Navigation">
+        <SheetContent title={t('nav.sheetTitle')}>
           <AppSidebar onNavigate={() => setNavOpen(false)} />
         </SheetContent>
       </Dialog>

@@ -12,7 +12,9 @@ import { Button } from '@/components/ui/button'
 import { SectionCard } from '@/components/ui/card'
 import { Input } from '@/components/ui/form'
 import { WorkspaceView } from '@/components/WorkspaceView'
-import { formatDate, formatDateTime } from '@/lib/dates'
+import { serviceErrorText } from '@/i18n/domain'
+import { useI18n } from '@/i18n/I18nProvider'
+import type { MessageKey } from '@/i18n/messages/en'
 import type { WorkspaceData } from '@/services'
 import { useAppStore } from '@/store/AppStore'
 import { activityFor, findCapture, findPerson, personLabel } from '@/store/selectors'
@@ -32,17 +34,18 @@ function Detail({ data }: { data: WorkspaceData }) {
   const [dateValue, setDateValue] = useState(commitment?.dueDate ?? '')
   const [savingDate, setSavingDate] = useState(false)
   const [dateError, setDateError] = useState<string | null>(null)
+  const { t, fmt } = useI18n()
 
-  if (!commitment) return <NotInWorkspace kind="commitment" back={{ to: '/commitments', label: 'Back to commitments' }} />
+  if (!commitment) return <NotInWorkspace kind="commitment" back={{ to: '/commitments', label: t('nav.commitments') }} />
 
   const capture = findCapture(data, commitment.sourceCaptureId)
   const proposal = commitment.proposalId ? data.proposals.find((p) => p.id === commitment.proposalId) : undefined
   const person = findPerson(data, commitment.personId)
 
-  const statusCopy: Record<CommitmentStatus, { title: string; description: string; label: string; done: string }> = {
-    done: { title: 'Mark as done?', description: 'The commitment will move to Completed. You can reopen it later.', label: 'Mark as done', done: 'Marked as done.' },
-    cancelled: { title: 'Cancel this commitment?', description: 'Use this when it no longer applies. It stays in history and can be reopened.', label: 'Cancel commitment', done: 'Commitment cancelled.' },
-    open: { title: 'Reopen this commitment?', description: 'It will return to your open commitments.', label: 'Reopen', done: 'Commitment reopened.' },
+  const statusCopy: Record<CommitmentStatus, { title: MessageKey; description: MessageKey; label: MessageKey; done: MessageKey }> = {
+    done: { title: 'commitment.doneTitle', description: 'commitment.doneDesc', label: 'commitment.markDone', done: 'commitment.doneToast' },
+    cancelled: { title: 'commitment.cancelTitle', description: 'commitment.cancelDesc', label: 'commitment.cancelConfirm', done: 'commitment.cancelToast' },
+    open: { title: 'commitment.reopenTitle', description: 'commitment.reopenDesc', label: 'commitment.reopen', done: 'commitment.reopenToast' },
   }
 
   const saveDate = async (value: string | null) => {
@@ -51,9 +54,9 @@ function Detail({ data }: { data: WorkspaceData }) {
     try {
       await updateCommitment(commitment.id, { dueDate: value })
       setEditingDate(false)
-      toast({ tone: 'success', message: value ? `Due date set to ${formatDate(value)}.` : 'Due date removed.' })
+      toast({ tone: 'success', message: value ? t('commitment.dateSetToast', { date: fmt.date(value) }) : t('commitment.dateRemovedToast') })
     } catch (e) {
-      setDateError(e instanceof Error ? e.message : 'Could not save.')
+      setDateError(serviceErrorText(e, t))
     } finally {
       setSavingDate(false)
     }
@@ -62,27 +65,27 @@ function Detail({ data }: { data: WorkspaceData }) {
   return (
     <>
       <PageHeader
-        back={{ to: '/commitments', label: 'Commitments' }}
+        back={{ to: '/commitments', label: t('nav.commitments') }}
         title={commitment.title}
         description={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <DirectionLabel direction={commitment.direction} />
-            <span>Confirmed {formatDateTime(commitment.confirmedAt)}</span>
+            <span>{t('commitment.confirmedAt', { date: fmt.dateTime(commitment.confirmedAt) })}</span>
           </span>
         }
         actions={
           commitment.status === 'open' ? (
             <>
               <Button variant="secondary" onClick={() => setConfirm('cancelled')}>
-                <CircleSlash aria-hidden /> Cancel
+                <CircleSlash aria-hidden /> {t('commitment.cancel')}
               </Button>
               <Button onClick={() => setConfirm('done')}>
-                <Check aria-hidden /> Mark as done
+                <Check aria-hidden /> {t('commitment.markDone')}
               </Button>
             </>
           ) : (
             <Button variant="secondary" onClick={() => setConfirm('open')}>
-              <RotateCcw aria-hidden /> Reopen
+              <RotateCcw aria-hidden /> {t('commitment.reopen')}
             </Button>
           )
         }
@@ -90,38 +93,38 @@ function Detail({ data }: { data: WorkspaceData }) {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <SectionCard title="Details">
+          <SectionCard title={t('commitment.details')}>
             <dl className="divide-y divide-line text-sm">
               <div className="grid gap-1 px-5 py-3.5 sm:grid-cols-3">
-                <dt className="text-ink-muted">Status</dt>
+                <dt className="text-ink-muted">{t('commitment.status')}</dt>
                 <dd className="sm:col-span-2">
                   <DueBadge commitment={commitment} />
                 </dd>
               </div>
               <div className="grid gap-1 px-5 py-3.5 sm:grid-cols-3">
-                <dt className="text-ink-muted">Due date</dt>
+                <dt className="text-ink-muted">{t('commitment.dueDate')}</dt>
                 <dd className="sm:col-span-2">
                   {editingDate ? (
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Input type="date" aria-label="Due date" value={dateValue} onChange={(e) => setDateValue(e.target.value)} className="max-w-48" />
+                        <Input type="date" aria-label={t('commitment.dueDate')} value={dateValue} onChange={(e) => setDateValue(e.target.value)} className="max-w-48" />
                         <Button size="sm" loading={savingDate} disabled={!dateValue} onClick={() => saveDate(dateValue)}>
-                          Save
+                          {t('common.save')}
                         </Button>
                         {commitment.dueDate && (
                           <Button size="sm" variant="ghost" disabled={savingDate} onClick={() => saveDate(null)}>
-                            Remove date
+                            {t('commitment.removeDate')}
                           </Button>
                         )}
                         <Button size="sm" variant="ghost" disabled={savingDate} onClick={() => setEditingDate(false)}>
-                          Cancel
+                          {t('common.cancel')}
                         </Button>
                       </div>
                       {dateError && <p role="alert" className="text-xs text-danger">{dateError}</p>}
                     </div>
                   ) : (
                     <div className="flex items-center gap-3">
-                      <span className="text-ink">{commitment.dueDate ? formatDate(commitment.dueDate) : 'Not set — no reminder will be scheduled'}</span>
+                      <span className="text-ink">{commitment.dueDate ? fmt.date(commitment.dueDate) : t('commitment.notSet')}</span>
                       {commitment.status === 'open' && (
                         <Button
                           variant="link"
@@ -131,7 +134,7 @@ function Detail({ data }: { data: WorkspaceData }) {
                             setEditingDate(true)
                           }}
                         >
-                          {commitment.dueDate ? 'Change' : 'Set date'}
+                          {commitment.dueDate ? t('common.change') : t('commitment.setDate')}
                         </Button>
                       )}
                     </div>
@@ -139,39 +142,39 @@ function Detail({ data }: { data: WorkspaceData }) {
                 </dd>
               </div>
               <div className="grid gap-1 px-5 py-3.5 sm:grid-cols-3">
-                <dt className="text-ink-muted">Person</dt>
+                <dt className="text-ink-muted">{t('commitment.person')}</dt>
                 <dd className="sm:col-span-2">
                   {person ? (
                     <Link to={`/people/${person.id}`} className="font-medium text-primary hover:underline">
                       {personLabel(data, person.id)}
                     </Link>
                   ) : (
-                    <span className="text-ink-muted">Not linked</span>
+                    <span className="text-ink-muted">{t('common.notLinked')}</span>
                   )}
                 </dd>
               </div>
               <div className="grid gap-1 px-5 py-3.5 sm:grid-cols-3">
-                <dt className="text-ink-muted">Details</dt>
-                <dd className="text-ink sm:col-span-2">{commitment.description || <span className="text-ink-muted">None</span>}</dd>
+                <dt className="text-ink-muted">{t('commitment.details')}</dt>
+                <dd className="text-ink sm:col-span-2">{commitment.description || <span className="text-ink-muted">{t('common.none')}</span>}</dd>
               </div>
               {commitment.completedAt && (
                 <div className="grid gap-1 px-5 py-3.5 sm:grid-cols-3">
-                  <dt className="text-ink-muted">Completed</dt>
-                  <dd className="sm:col-span-2">{formatDateTime(commitment.completedAt)}</dd>
+                  <dt className="text-ink-muted">{t('commitment.completed')}</dt>
+                  <dd className="sm:col-span-2">{fmt.dateTime(commitment.completedAt)}</dd>
                 </div>
               )}
             </dl>
           </SectionCard>
 
-          <SectionCard title="Source" description="The original capture this commitment was confirmed from">
+          <SectionCard title={t('commitment.source')} description={t('commitment.sourceDesc')}>
             <div className="p-5">
               <SourceReference capture={capture} highlight={proposal?.sourceExcerpt} />
             </div>
           </SectionCard>
         </div>
 
-        <SectionCard title="History" className="self-start">
-          <ActivityList events={activityFor(data, commitment.id)} empty="No changes recorded since confirmation." />
+        <SectionCard title={t('commitment.history')} className="self-start">
+          <ActivityList events={activityFor(data, commitment.id)} empty={t('commitment.noChanges')} />
         </SectionCard>
       </div>
 
@@ -179,13 +182,13 @@ function Detail({ data }: { data: WorkspaceData }) {
         <ConfirmationDialog
           open
           onOpenChange={(o) => !o && setConfirm(null)}
-          title={statusCopy[confirm].title}
-          description={statusCopy[confirm].description}
-          confirmLabel={statusCopy[confirm].label}
+          title={t(statusCopy[confirm].title)}
+          description={t(statusCopy[confirm].description)}
+          confirmLabel={t(statusCopy[confirm].label)}
           tone={confirm === 'cancelled' ? 'danger' : 'primary'}
           onConfirm={async () => {
             await updateCommitment(commitment.id, { status: confirm })
-            toast({ tone: 'success', message: statusCopy[confirm].done })
+            toast({ tone: 'success', message: t(statusCopy[confirm].done) })
           }}
         />
       )}

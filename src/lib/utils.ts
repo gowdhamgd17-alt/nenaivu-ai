@@ -20,10 +20,6 @@ export function truncate(text: string, max: number) {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 }
 
-export function pluralise(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`
-}
-
 export function initials(name: string) {
   return name
     .split(/\s+/)

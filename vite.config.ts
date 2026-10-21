@@ -7,5 +7,5 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 // `vite build --mode single` produces one self-contained index.html (used for the hosted preview).
 export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss(), ...(mode === 'single' ? [viteSingleFile()] : [])],
-  resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
+  resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') } },
 }))

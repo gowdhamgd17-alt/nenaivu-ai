@@ -4,19 +4,16 @@
  * - Data lives in this browser tab only and resets on reload.
  * - Latency is simulated; failures can be forced from Settings → Prototype controls.
  * - Extraction is rule-based (see mockExtractor.ts), not AI.
- * - Ask is keyword matching over confirmed records, not generative AI.
+ * - Ask is keyword matching over confirmed records with templated English/Tamil
+ *   answers (mockAsk.ts), not generative AI.
  */
 import { buildMockSeed, CURRENT_USER, type DataSnapshot } from '@/data/mockSeed'
 import { todayISO } from '@/lib/dates'
-import { createId, pluralise, sleep } from '@/lib/utils'
-import type { ActivityEvent, ActivityType, Commitment, ID, Memory, Person } from '@/types/models'
-import {
-  ServiceError,
-  type AskMatch,
-  type NenaivuApi,
-  type WorkspaceData,
-} from '../api'
-import { extractProposals, keyTerms } from './mockExtractor'
+import { createId, sleep } from '@/lib/utils'
+import type { ActivityEvent, ActivityParams, ActivityType, Capture, Commitment, ID, Memory, Person } from '@/types/models'
+import { ServiceError, type NenaivuApi, type WorkspaceData } from '../api'
+import { answerQuestion } from './mockAsk'
+import { extractProposals } from './mockExtractor'
 
 let db: DataSnapshot = buildMockSeed()
 
@@ -32,22 +29,22 @@ export function resetMockData() {
 async function simulate(ms: number) {
   if (prototypeControls.latency) await sleep(ms)
   if (prototypeControls.failNextRequests) {
-    throw new ServiceError('The mock service was set to fail (Settings → Prototype controls).')
+    throw new ServiceError('forced_failure')
   }
 }
 
 function assertWorkspace(workspaceId: ID) {
-  if (!db.workspaces.some((w) => w.id === workspaceId)) throw new ServiceError('Workspace not found.')
+  if (!db.workspaces.some((w) => w.id === workspaceId)) throw new ServiceError('workspace_not_found')
 }
 
-function log(workspaceId: ID, type: ActivityType, message: string, refs: ID[]): ActivityEvent {
+function log(workspaceId: ID, type: ActivityType, params: ActivityParams, refs: ID[]): ActivityEvent {
   const event: ActivityEvent = {
     id: createId('a'),
     workspaceId,
     type,
     at: new Date().toISOString(),
     actorId: CURRENT_USER.id,
-    message,
+    params,
     refs,
   }
   db.activity = [event, ...db.activity]
@@ -55,8 +52,6 @@ function log(workspaceId: ID, type: ActivityType, message: string, refs: ID[]): 
 }
 
 const clone = <T,>(value: T): T => structuredClone(value)
-
-const RECORD_LABEL = { commitment: 'commitment', memory: 'memory', person: 'contact' } as const
 
 export const mockApi: NenaivuApi = {
   async getCurrentUser() {
@@ -87,15 +82,15 @@ export const mockApi: NenaivuApi = {
     await simulate(1400)
     assertWorkspace(workspaceId)
     const trimmed = content.trim()
-    if (!trimmed) throw new ServiceError('Capture is empty.')
+    if (!trimmed) throw new ServiceError('capture_empty')
 
-    const capture = {
+    const capture: Capture = {
       id: createId('c'),
       workspaceId,
       kind,
       content, // stored exactly as given — never rewritten
       fileName,
-      channel: kind === 'file' ? 'File (read in browser)' : 'Quick Capture',
+      channel: kind === 'file' ? 'file' : 'quick_capture',
       createdAt: new Date().toISOString(),
       createdBy: CURRENT_USER.id,
     }
@@ -108,26 +103,21 @@ export const mockApi: NenaivuApi = {
     })
     db.captures = [capture, ...db.captures]
     db.proposals = [...proposals, ...db.proposals]
-    const activity = log(
-      workspaceId,
-      'capture_created',
-      `Captured ${kind === 'file' ? `file "${fileName}"` : 'note'} via Quick Capture (${pluralise(proposals.length, 'proposal')})`,
-      [capture.id],
-    )
+    const activity = log(workspaceId, 'capture_created', { captureKind: kind, fileName, proposalCount: proposals.length }, [capture.id])
     return clone({ capture, proposals, activity })
   },
 
   async approveProposal(workspaceId, proposalId, input) {
     await simulate(500)
     const proposal = db.proposals.find((p) => p.id === proposalId && p.workspaceId === workspaceId)
-    if (!proposal) throw new ServiceError('Proposal not found in this workspace.')
-    if (proposal.status !== 'pending') throw new ServiceError('This proposal has already been resolved.')
-    if (!input.title.trim()) throw new ServiceError('A title is required.')
+    if (!proposal) throw new ServiceError('proposal_not_found')
+    if (proposal.status !== 'pending') throw new ServiceError('already_resolved')
+    if (!input.title.trim()) throw new ServiceError('title_required')
     if (input.recordType === 'commitment' && proposal.fields.deadline.kind === 'ambiguous' && input.dueDate === undefined) {
-      throw new ServiceError('Resolve the ambiguous deadline before approving.')
+      throw new ServiceError('deadline_unresolved')
     }
     if (input.personId && !db.people.some((p) => p.id === input.personId && p.workspaceId === workspaceId)) {
-      throw new ServiceError('Linked person is not in this workspace.')
+      throw new ServiceError('person_not_in_workspace')
     }
 
     const now = new Date().toISOString()
@@ -178,9 +168,8 @@ export const mockApi: NenaivuApi = {
     proposal.resolvedBy = CURRENT_USER.id
     proposal.resultingRecordId = record.value.id
 
-    const edits = input.editedFields.length ? ` with edits to ${input.editedFields.join(', ')}` : ''
     const name = 'title' in record.value ? record.value.title : record.value.name
-    const activity = log(workspaceId, 'proposal_approved', `Approved ${RECORD_LABEL[input.recordType]} "${name}"${edits}`, [
+    const activity = log(workspaceId, 'proposal_approved', { recordType: input.recordType, title: name, editedFields: input.editedFields }, [
       record.value.id,
       proposal.id,
       proposal.captureId,
@@ -191,8 +180,8 @@ export const mockApi: NenaivuApi = {
   async rejectProposal(workspaceId, proposalId, reason) {
     await simulate(400)
     const proposal = db.proposals.find((p) => p.id === proposalId && p.workspaceId === workspaceId)
-    if (!proposal) throw new ServiceError('Proposal not found in this workspace.')
-    if (proposal.status !== 'pending') throw new ServiceError('This proposal has already been resolved.')
+    if (!proposal) throw new ServiceError('proposal_not_found')
+    if (proposal.status !== 'pending') throw new ServiceError('already_resolved')
     proposal.status = 'rejected'
     proposal.resolvedAt = new Date().toISOString()
     proposal.resolvedBy = CURRENT_USER.id
@@ -200,7 +189,7 @@ export const mockApi: NenaivuApi = {
     const activity = log(
       workspaceId,
       'proposal_rejected',
-      `Rejected proposed ${RECORD_LABEL[proposal.recordType]} "${proposal.fields.title}"${proposal.rejectionReason ? ` — ${proposal.rejectionReason}` : ''}`,
+      { recordType: proposal.recordType, title: proposal.fields.title, reason: proposal.rejectionReason },
       [proposal.id, proposal.captureId],
     )
     return clone({ proposal, activity })
@@ -209,73 +198,32 @@ export const mockApi: NenaivuApi = {
   async updateCommitment(workspaceId, commitmentId, update) {
     await simulate(350)
     const c = db.commitments.find((x) => x.id === commitmentId && x.workspaceId === workspaceId)
-    if (!c) throw new ServiceError('Commitment not found in this workspace.')
+    if (!c) throw new ServiceError('commitment_not_found')
     const events: ActivityEvent[] = []
     if (update.status && update.status !== c.status) {
       const from = c.status
       c.status = update.status
       c.completedAt = update.status === 'done' ? new Date().toISOString() : undefined
-      const label = { open: 'open', done: 'done', cancelled: 'cancelled' }
-      events.push(log(workspaceId, 'commitment_status_changed', `Changed "${c.title}" from ${label[from]} to ${label[update.status]}`, [c.id]))
+      events.push(log(workspaceId, 'commitment_status_changed', { title: c.title, from, to: update.status }, [c.id]))
     }
     if (update.dueDate !== undefined && (update.dueDate ?? undefined) !== c.dueDate) {
       c.dueDate = update.dueDate ?? undefined
-      events.push(
-        log(workspaceId, 'commitment_due_date_changed', update.dueDate ? `Set due date of "${c.title}" to ${update.dueDate}` : `Removed due date from "${c.title}"`, [c.id]),
-      )
+      events.push(log(workspaceId, 'commitment_due_date_changed', { title: c.title, date: update.dueDate ?? undefined }, [c.id]))
     }
     return clone({ commitment: c, activity: events })
   },
 
-  async ask(workspaceId, question) {
+  async ask(workspaceId, input) {
     await simulate(900)
     assertWorkspace(workspaceId)
-    const terms = [...keyTerms(question)]
-    const people = db.people.filter((p) => p.workspaceId === workspaceId)
-    const personName = (id?: ID) => people.find((p) => p.id === id)?.name
-    const candidates: Omit<AskMatch, 'matchedTerms'>[] = [
-      ...db.memories
-        .filter((m) => m.workspaceId === workspaceId)
-        .map((m) => ({ type: 'memory' as const, id: m.id, title: m.title, detail: m.summary, sourceCaptureId: m.sourceCaptureId })),
-      ...db.commitments
-        .filter((c) => c.workspaceId === workspaceId)
-        .map((c) => ({
-          type: 'commitment' as const,
-          id: c.id,
-          title: c.title,
-          detail: [
-            c.status === 'open' ? 'Open' : c.status === 'done' ? 'Done' : 'Cancelled',
-            c.dueDate ? `due ${c.dueDate}` : 'no due date',
-            personName(c.personId) ? `with ${personName(c.personId)}` : '',
-            c.description,
-          ]
-            .filter(Boolean)
-            .join(' · '),
-          sourceCaptureId: c.sourceCaptureId,
-        })),
-      ...people.map((p) => ({
-        type: 'person' as const,
-        id: p.id,
-        title: p.name,
-        detail: [p.kind === 'organisation' ? 'Organisation' : 'Person', p.role, personName(p.organisationId)].filter(Boolean).join(' · '),
-        sourceCaptureId: p.sourceCaptureId,
-      })),
-    ]
-    const matches: AskMatch[] = candidates
-      .map((c) => {
-        const haystack = keyTerms(`${c.title} ${c.detail}`)
-        const matched = terms.filter((t) => haystack.has(t) || [...haystack].some((h) => h.startsWith(t) || t.startsWith(h)))
-        return { ...c, matchedTerms: matched }
-      })
-      .filter((m) => m.matchedTerms.length > 0)
-      .sort((a, b) => b.matchedTerms.length - a.matchedTerms.length)
-      .slice(0, 6)
-    const covered = new Set(matches.flatMap((m) => m.matchedTerms))
-    return clone({
-      question,
-      askedAt: new Date().toISOString(),
-      matches,
-      unmatchedTerms: terms.filter((t) => !covered.has(t)),
+    const inWs = <T extends { workspaceId: ID }>(items: T[]) => items.filter((i) => i.workspaceId === workspaceId)
+    // Only confirmed records of the requested workspace are searched — never proposals,
+    // never another workspace. Voice questions arrive here as text, under the same rules.
+    const result = answerQuestion(input, {
+      memories: inWs(db.memories),
+      commitments: inWs(db.commitments),
+      people: inWs(db.people),
     })
+    return clone({ ...result, askedAt: new Date().toISOString() })
   },
 }

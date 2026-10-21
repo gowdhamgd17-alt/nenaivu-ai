@@ -1,9 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   api,
+  errorCode,
   type ApprovalInput,
+  type AskInput,
   type CommitmentUpdate,
   type CreateCaptureInput,
+  type ServiceErrorCode,
   type WorkspaceData,
 } from '@/services'
 import type { ID, User, Workspace } from '@/types/models'
@@ -15,7 +18,8 @@ interface AppStoreValue {
   workspaces: Workspace[]
   activeWorkspaceId: ID | null
   status: LoadStatus
-  error: string | null
+  /** Error code from the service layer; the UI translates it. */
+  error: ServiceErrorCode | null
   /** Data for the active workspace only. */
   data: WorkspaceData | null
   switchWorkspace: (id: ID) => void
@@ -24,7 +28,7 @@ interface AppStoreValue {
   approveProposal: (proposalId: ID, input: ApprovalInput) => ReturnType<typeof api.approveProposal>
   rejectProposal: (proposalId: ID, reason?: string) => ReturnType<typeof api.rejectProposal>
   updateCommitment: (id: ID, update: CommitmentUpdate) => ReturnType<typeof api.updateCommitment>
-  ask: (question: string) => ReturnType<typeof api.ask>
+  ask: (input: AskInput) => ReturnType<typeof api.ask>
 }
 
 const AppStoreContext = createContext<AppStoreValue | null>(null)
@@ -37,7 +41,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<ID | null>(null)
   const [status, setStatus] = useState<LoadStatus>('loading')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<ServiceErrorCode | null>(null)
   const [data, setData] = useState<WorkspaceData | null>(null)
   const loadToken = useRef(0)
 
@@ -54,7 +58,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       setStatus('ready')
     } catch (e) {
       if (token !== loadToken.current) return
-      setError(e instanceof Error ? e.message : 'Something went wrong.')
+      setError(errorCode(e))
       setStatus('error')
     }
   }, [])
@@ -132,7 +136,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         }))
         return result
       },
-      ask: (question) => api.ask(requireWs(), question),
+      ask: (input) => api.ask(requireWs(), input),
     }),
     [user, workspaces, activeWorkspaceId, status, error, data, load, patch, requireWs],
   )

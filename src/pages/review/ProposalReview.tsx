@@ -9,12 +9,13 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toaster'
 import { Button } from '@/components/ui/button'
 import { Field, Input, Select, Textarea } from '@/components/ui/form'
-import { formatDate, formatDateTime } from '@/lib/dates'
+import { captureSourceLabel, deadlineReasonText, serviceErrorText, uncertaintyText } from '@/i18n/domain'
+import { useI18n } from '@/i18n/I18nProvider'
 import { cn } from '@/lib/utils'
 import type { ApprovalInput, WorkspaceData } from '@/services'
 import { useAppStore } from '@/store/AppStore'
 import { findCapture, personLabel } from '@/store/selectors'
-import type { CommitmentDirection, PartyKind, Proposal, RecordType } from '@/types/models'
+import type { CommitmentDirection, EditableField, PartyKind, Proposal, RecordType } from '@/types/models'
 
 interface ProposalReviewProps {
   proposal: Proposal
@@ -60,6 +61,7 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
   const { approveProposal, rejectProposal } = useAppStore()
   const toast = useToast()
   const uid = useId()
+  const { t, tx, fmt } = useI18n()
 
   const capture = findCapture(data, proposal.captureId)
   const pending = proposal.status === 'pending'
@@ -84,17 +86,17 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
     return p ? { title: p.name, to: `/people/${p.id}` } : null
   }, [proposal.possibleDuplicateOf, data])
 
-  const titleError = showErrors && !draft.title.trim() ? 'A title is required.' : undefined
+  const titleError = showErrors && !draft.title.trim() ? t('proposal.titleRequired') : undefined
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }))
 
-  const editedFields = (): string[] => {
-    const labels: Partial<Record<keyof Draft, string>> = {
+  const editedFields = (): EditableField[] => {
+    const labels: Partial<Record<keyof Draft, EditableField>> = {
       recordType: 'type',
       title: 'title',
       summary: draft.recordType === 'person' ? 'role' : 'details',
       personId: 'person',
       direction: 'direction',
-      partyKind: 'contact type',
+      partyKind: 'contactType',
       dueDate: 'deadline',
     }
     return (Object.keys(labels) as (keyof Draft)[]).filter((k) => {
@@ -106,7 +108,7 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
   const approve = async () => {
     setShowErrors(true)
     if (!draft.title.trim() || needsDateResolution || dateMissing) {
-      setError(needsDateResolution ? 'Choose a date or confirm there is no due date before approving.' : dateMissing ? 'Pick a due date, or choose “No due date”.' : 'Fix the highlighted fields.')
+      setError(needsDateResolution ? t('proposal.resolveDate') : dateMissing ? t('proposal.pickDate') : t('proposal.fixFields'))
       return
     }
     setSubmitting(true)
@@ -125,10 +127,10 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
       const result = await approveProposal(proposal.id, input)
       const to =
         result.record.type === 'commitment' ? `/commitments/${result.record.value.id}` : result.record.type === 'memory' ? `/memory/${result.record.value.id}` : `/people/${result.record.value.id}`
-      toast({ tone: 'success', message: `Approved — saved as a confirmed ${result.record.type === 'person' ? 'contact' : result.record.type}.`, link: { to, label: 'Open record' } })
+      toast({ tone: 'success', message: t('proposal.approvedToast', { recordType: t(`recordLower.${result.record.type}`) }), link: { to, label: t('common.openRecord') } })
       onResolved(proposal.id)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Approval failed.')
+      setError(serviceErrorText(e, t))
     } finally {
       setSubmitting(false)
     }
@@ -136,7 +138,7 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
 
   const reject = async (reason: string) => {
     await rejectProposal(proposal.id, reason)
-    toast({ tone: 'neutral', message: 'Proposal rejected. No record was created.' })
+    toast({ tone: 'neutral', message: t('proposal.rejectedToast') })
     onResolved(proposal.id)
   }
 
@@ -156,61 +158,64 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
       <header className="border-b border-line px-5 py-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-2">
           <RecordTypeBadge type={proposal.recordType} partyKind={proposal.fields.partyKind} />
-          {proposal.status === 'pending' && <StatusBadge>Awaiting confirmation</StatusBadge>}
-          {proposal.status === 'approved' && <StatusBadge tone="success" icon={<Check />}>Approved</StatusBadge>}
-          {proposal.status === 'rejected' && <StatusBadge icon={<X />}>Rejected</StatusBadge>}
+          {proposal.status === 'pending' && <StatusBadge>{t('badge.awaiting')}</StatusBadge>}
+          {proposal.status === 'approved' && <StatusBadge tone="success" icon={<Check />}>{t('badge.approved')}</StatusBadge>}
+          {proposal.status === 'rejected' && <StatusBadge icon={<X />}>{t('badge.rejected')}</StatusBadge>}
         </div>
         <h2 id={`${uid}-h`} className="mt-2 text-lg font-semibold text-ink">
           {proposal.fields.title}
         </h2>
-        <p className="mt-0.5 text-xs text-ink-muted">Proposed {formatDateTime(proposal.createdAt)} from {capture?.fileName ?? capture?.channel ?? 'a capture'}</p>
+        <p className="mt-0.5 text-xs text-ink-muted">{t('proposal.proposedFrom', { date: fmt.dateTime(proposal.createdAt), source: captureSourceLabel(capture, t) })}</p>
       </header>
 
       <div className="flex-1 space-y-6 px-5 py-5 sm:px-6">
         {proposal.status === 'approved' && (
-          <Notice tone="success" icon={<Check />} title={`Approved ${proposal.resolvedAt ? formatDateTime(proposal.resolvedAt) : ''}`}>
-            A confirmed record was created.{' '}
+          <Notice tone="success" icon={<Check />} title={t('proposal.approvedAt', { date: proposal.resolvedAt ? fmt.dateTime(proposal.resolvedAt) : '' })}>
+            {t('proposal.recordCreated')}{' '}
             {resultingLink && (
               <Link to={resultingLink} className="font-medium text-primary hover:underline">
-                Open record
+                {t('common.openRecord')}
               </Link>
             )}
           </Notice>
         )}
         {proposal.status === 'rejected' && (
-          <Notice tone="neutral" icon={<CircleSlash />} title={`Rejected ${proposal.resolvedAt ? formatDateTime(proposal.resolvedAt) : ''}`}>
-            No record was created.{proposal.rejectionReason && <> Reason: “{proposal.rejectionReason}”</>}
+          <Notice tone="neutral" icon={<CircleSlash />} title={t('proposal.rejectedAt', { date: proposal.resolvedAt ? fmt.dateTime(proposal.resolvedAt) : '' })}>
+            {t('proposal.noRecord')}
+            {proposal.rejectionReason && <> {t('proposal.reason', { reason: proposal.rejectionReason })}</>}
           </Notice>
         )}
 
-        <section aria-label="Original source">
+        <section aria-label={t('source.original')}>
           <SourceReference capture={capture} highlight={proposal.sourceExcerpt} />
-          <p className="mt-1.5 text-xs text-ink-muted">Highlighted text is what this proposal was drafted from. The original cannot be edited.</p>
+          <p className="mt-1.5 text-xs text-ink-muted">{t('proposal.highlightNote')}</p>
         </section>
 
         {pending && duplicate && (
-          <Notice tone="warning" icon={<AlertCircle />} title="Possible duplicate">
-            This looks similar to an existing record:{' '}
-            <Link to={duplicate.to} className="font-medium text-primary hover:underline">
-              {duplicate.title}
-            </Link>
+          <Notice tone="warning" icon={<AlertCircle />} title={t('proposal.duplicateTitle')}>
+            {tx('proposal.duplicateText', { title: duplicate.title }, {
+              link: (c) => (
+                <Link to={duplicate.to} className="font-medium text-primary hover:underline">
+                  {c}
+                </Link>
+              ),
+            })}
             {'commitment' in duplicate && duplicate.commitment && (
-              <span className="ml-1.5 inline-block align-middle">
+              <span className="mt-1.5 block">
                 <DueBadge commitment={duplicate.commitment} />
               </span>
             )}
-            . If it is the same thing, reject this proposal.
           </Notice>
         )}
 
         {pending && proposal.uncertainties.length > 0 && (
           <section aria-labelledby={`${uid}-unc`} className="rounded-input border border-line bg-canvas px-4 py-3">
             <h3 id={`${uid}-unc`} className="flex items-center gap-1.5 text-sm font-medium text-ink">
-              <HelpCircle className="size-4 text-ink-muted" aria-hidden /> Check before approving
+              <HelpCircle className="size-4 text-ink-muted" aria-hidden /> {t('proposal.checkTitle')}
             </h3>
             <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-ink-muted marker:text-ink-faint">
-              {proposal.uncertainties.map((u) => (
-                <li key={u}>{u}</li>
+              {proposal.uncertainties.map((u, i) => (
+                <li key={`${u.code}-${i}`}>{uncertaintyText(u, t)}</li>
               ))}
             </ul>
           </section>
@@ -219,34 +224,34 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
         <section aria-labelledby={`${uid}-fields`} className="space-y-4">
           <div>
             <h3 id={`${uid}-fields`} className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-              <Sparkles className="size-4 text-primary" aria-hidden /> Proposed record
+              <Sparkles className="size-4 text-primary" aria-hidden /> {t('proposal.proposedRecord')}
             </h3>
-            <p className="text-xs text-ink-muted">{pending ? 'Drafted from the source — edit anything before approving.' : 'Values at the time of proposal.'}</p>
+            <p className="text-xs text-ink-muted">{pending ? t('proposal.draftedHint') : t('proposal.historicHint')}</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field id={`${uid}-type`} label="Record type">
+            <Field id={`${uid}-type`} label={t('proposal.recordType')}>
               <Select id={`${uid}-type`} value={draft.recordType} disabled={fieldsDisabled} onChange={(e) => set('recordType', e.target.value as RecordType)}>
-                <option value="commitment">Commitment</option>
-                <option value="memory">Memory</option>
-                <option value="person">Contact (person or organisation)</option>
+                <option value="commitment">{t('record.commitment')}</option>
+                <option value="memory">{t('record.memory')}</option>
+                <option value="person">{t('proposal.typeContact')}</option>
               </Select>
             </Field>
             {draft.recordType === 'person' ? (
-              <Field id={`${uid}-kind`} label="Contact type">
+              <Field id={`${uid}-kind`} label={t('proposal.contactType')}>
                 <Select id={`${uid}-kind`} value={draft.partyKind} disabled={fieldsDisabled} onChange={(e) => set('partyKind', e.target.value as PartyKind)}>
-                  <option value="person">Person</option>
-                  <option value="organisation">Organisation</option>
+                  <option value="person">{t('record.person')}</option>
+                  <option value="organisation">{t('record.organisation')}</option>
                 </Select>
               </Field>
             ) : (
               <Field
                 id={`${uid}-person`}
-                label="Person or organisation"
-                hint={!draft.personId && proposal.fields.personName ? `“${proposal.fields.personName}” is mentioned but not a confirmed contact yet.` : undefined}
+                label={t('proposal.personOrOrg')}
+                hint={!draft.personId && proposal.fields.personName ? t('proposal.unmatchedName', { name: proposal.fields.personName }) : undefined}
               >
                 <Select id={`${uid}-person`} value={draft.personId} disabled={fieldsDisabled} onChange={(e) => set('personId', e.target.value)}>
-                  <option value="">Not linked</option>
+                  <option value="">{t('common.notLinked')}</option>
                   {data.people.map((p) => (
                     <option key={p.id} value={p.id}>
                       {personLabel(data, p.id)}
@@ -257,7 +262,7 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
             )}
           </div>
 
-          <Field id={`${uid}-title`} label={draft.recordType === 'person' ? 'Name' : 'Title'} error={titleError}>
+          <Field id={`${uid}-title`} label={draft.recordType === 'person' ? t('proposal.name') : t('proposal.title')} error={titleError}>
             <Input
               id={`${uid}-title`}
               value={draft.title}
@@ -269,7 +274,11 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
             />
           </Field>
 
-          <Field id={`${uid}-summary`} label={draft.recordType === 'person' ? 'Role or notes' : draft.recordType === 'memory' ? 'What to remember' : 'Details'} hint="Optional">
+          <Field
+            id={`${uid}-summary`}
+            label={draft.recordType === 'person' ? t('proposal.roleNotes') : draft.recordType === 'memory' ? t('proposal.whatToRemember') : t('proposal.details')}
+            hint={t('common.optional')}
+          >
             {draft.recordType === 'person' ? (
               <Input id={`${uid}-summary`} value={draft.summary} disabled={fieldsDisabled} onChange={(e) => set('summary', e.target.value)} maxLength={140} />
             ) : (
@@ -280,14 +289,14 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
           {isCommitment && (
             <>
               <fieldset>
-                <legend className="mb-1.5 text-sm font-medium text-ink">Direction</legend>
+                <legend className="mb-1.5 text-sm font-medium text-ink">{t('proposal.direction')}</legend>
                 <div className="grid grid-cols-2 gap-2">
                   {(
                     [
-                      ['we_owe', 'We owe', 'We promised this', <ArrowUpRight key="u" />],
-                      ['owed_to_us', 'Owed to us', 'Someone promised us', <ArrowDownLeft key="d" />],
+                      ['we_owe', <ArrowUpRight key="u" />],
+                      ['owed_to_us', <ArrowDownLeft key="d" />],
                     ] as const
-                  ).map(([value, label, hint, icon]) => (
+                  ).map(([value, icon]) => (
                     <label
                       key={value}
                       className={cn(
@@ -299,8 +308,8 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
                       <input type="radio" name={`${uid}-dir`} value={value} checked={draft.direction === value} disabled={fieldsDisabled} onChange={() => set('direction', value)} className="sr-only" />
                       {icon}
                       <span>
-                        <span className="block font-medium text-ink">{label}</span>
-                        <span className="block text-xs text-ink-muted">{hint}</span>
+                        <span className="block font-medium text-ink">{t(`direction.${value}`)}</span>
+                        <span className="block text-xs text-ink-muted">{t(`direction.${value}Hint`)}</span>
                       </span>
                     </label>
                   ))}
@@ -330,12 +339,12 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
       {pending && (
         <footer className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-line bg-surface/95 px-5 py-4 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <Button variant="danger-outline" onClick={() => setRejectOpen(true)} disabled={submitting}>
-            <X aria-hidden /> Reject
+            <X aria-hidden /> {t('proposal.reject')}
           </Button>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            {needsDateResolution && <span className="text-xs text-warning">Resolve the deadline to approve</span>}
+            {needsDateResolution && <span className="text-xs text-warning">{t('proposal.resolveToApprove')}</span>}
             <Button onClick={approve} loading={submitting}>
-              {!submitting && <Check aria-hidden />} Approve & save
+              {!submitting && <Check aria-hidden />} {t('proposal.approve')}
             </Button>
           </div>
         </footer>
@@ -344,11 +353,11 @@ export function ProposalReview({ proposal, data, onResolved }: ProposalReviewPro
       <ConfirmationDialog
         open={rejectOpen}
         onOpenChange={setRejectOpen}
-        title="Reject this proposal?"
-        description="It will be marked as rejected and no record will be created. The original capture is kept."
-        confirmLabel="Reject proposal"
+        title={t('proposal.rejectTitle')}
+        description={t('proposal.rejectDesc')}
+        confirmLabel={t('proposal.rejectConfirm')}
         tone="danger"
-        reasonLabel="Reason"
+        reasonLabel={t('proposal.reasonLabel')}
         onConfirm={reject}
       />
     </article>
@@ -367,6 +376,7 @@ interface DeadlineEditorProps {
 
 function DeadlineEditor({ uid, deadline, choice, dueDate, disabled, showErrors, onChange }: DeadlineEditorProps) {
   const dateId = `${uid}-due`
+  const { t, tx, fmt } = useI18n()
 
   if (deadline.kind === 'ambiguous') {
     const unresolved = choice === 'unset'
@@ -378,26 +388,26 @@ function DeadlineEditor({ uid, deadline, choice, dueDate, disabled, showErrors, 
           unresolved && showErrors && 'ring-3 ring-warning/20',
         )}
       >
-        <legend className="sr-only">Deadline</legend>
+        <legend className="sr-only">{t('proposal.deadlineLegend')}</legend>
         <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
-          <CalendarClock className="size-4 text-warning" aria-hidden /> Deadline needs clarification
+          <CalendarClock className="size-4 text-warning" aria-hidden /> {t('proposal.deadlineUnclear')}
         </p>
         <p className="mt-1 text-sm text-ink-muted">
-          The source says <strong className="font-medium text-ink">“{deadline.phrase}”</strong>. {deadline.reason} No reminder will be scheduled until you choose.
+          {tx('proposal.deadlineSays', { phrase: deadline.phrase, reason: deadlineReasonText(deadline.reason, t, fmt) }, { b: (c) => <strong className="font-medium text-ink">{c}</strong> })}
         </p>
         <div className="mt-3 space-y-2.5">
           <label className="flex items-center gap-2.5 text-sm text-ink">
             <input type="radio" name={`${uid}-dl`} checked={choice === 'date'} disabled={disabled} onChange={() => onChange('date', dueDate)} className="size-4 accent-primary" />
-            Set a specific date
+            {t('proposal.setDate')}
           </label>
           {choice === 'date' && (
             <div className="pl-6.5">
-              <Input type="date" id={dateId} aria-label="Due date" value={dueDate} disabled={disabled} onChange={(e) => onChange('date', e.target.value)} className="max-w-48" aria-invalid={showErrors && !dueDate} />
+              <Input type="date" id={dateId} aria-label={t('proposal.dueDate')} value={dueDate} disabled={disabled} onChange={(e) => onChange('date', e.target.value)} className="max-w-48" aria-invalid={showErrors && !dueDate} />
             </div>
           )}
           <label className="flex items-center gap-2.5 text-sm text-ink">
             <input type="radio" name={`${uid}-dl`} checked={choice === 'none'} disabled={disabled} onChange={() => onChange('none', '')} className="size-4 accent-primary" />
-            Save without a due date
+            {t('proposal.noDate')}
           </label>
         </div>
       </fieldset>
@@ -407,11 +417,11 @@ function DeadlineEditor({ uid, deadline, choice, dueDate, disabled, showErrors, 
   return (
     <Field
       id={dateId}
-      label="Due date"
+      label={t('proposal.dueDate')}
       hint={
         deadline.kind === 'exact'
-          ? `From the source: “${deadline.phrase}”${deadline.note ? ` — ${deadline.note}` : ''}`
-          : 'No deadline was mentioned in the source. Leave empty unless you know the date.'
+          ? [t('proposal.fromSource', { phrase: deadline.phrase }), deadline.note && uncertaintyText(deadline.note, t)].filter(Boolean).join(' — ')
+          : t('proposal.noDeadlineHint')
       }
     >
       <div className="flex items-center gap-2">
@@ -426,10 +436,10 @@ function DeadlineEditor({ uid, deadline, choice, dueDate, disabled, showErrors, 
         />
         {dueDate && !disabled && (
           <Button type="button" variant="ghost" size="sm" onClick={() => onChange('none', '')}>
-            Clear
+            {t('common.clear')}
           </Button>
         )}
-        {dueDate && <span className="hidden text-xs text-ink-muted sm:inline">{formatDate(dueDate)}</span>}
+        {dueDate && <span className="hidden text-xs text-ink-muted sm:inline">{fmt.date(dueDate)}</span>}
       </div>
     </Field>
   )

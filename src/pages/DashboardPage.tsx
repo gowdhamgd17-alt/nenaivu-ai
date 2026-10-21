@@ -9,36 +9,34 @@ import { EmptyState, LoadingState } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Card, SectionCard } from '@/components/ui/card'
 import { WorkspaceView } from '@/components/WorkspaceView'
-import { pluralise } from '@/lib/utils'
+import { useI18n } from '@/i18n/I18nProvider'
 import { useAppStore } from '@/store/AppStore'
 import { commitmentsByBucket, pendingProposals, personLabel, recentMemories } from '@/store/selectors'
 
-function greeting() {
-  const h = new Date().getHours()
-  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
+function greetingKey(hour: number) {
+  return hour < 12 ? 'greeting.morning' : hour < 17 ? 'greeting.afternoon' : 'greeting.evening'
 }
-
-const dateLine = new Intl.DateTimeFormat('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
 
 export function DashboardPage() {
   const { user, workspaces, activeWorkspaceId } = useAppStore()
+  const { t, fmt } = useI18n()
   const ws = workspaces.find((w) => w.id === activeWorkspaceId)
+  const now = new Date()
 
   return (
     <>
       <PageHeader
-        title="Overview"
-        description={
-          <>
-            {greeting()}
-            {user ? `, ${user.name.split(' ')[0]}` : ''}. {dateLine.format(new Date())}
-            {ws ? ` · ${ws.name}` : ''}
-          </>
-        }
+        title={t('nav.overview')}
+        description={t('dashboard.welcome', {
+          greeting: t(greetingKey(now.getHours())),
+          name: user?.name.split(' ')[0] ?? '',
+          date: fmt.longDate(now),
+          workspace: ws?.name ?? '',
+        })}
         actions={
           <Button asChild>
             <Link to="/capture/new">
-              <Plus aria-hidden /> Quick Capture
+              <Plus aria-hidden /> {t('nav.quickCapture')}
             </Link>
           </Button>
         }
@@ -52,50 +50,46 @@ export function DashboardPage() {
           const priorities = [...overdue, ...dueToday]
           const memories = recentMemories(data)
 
-          const summary =
-            priorities.length || pending.length
-              ? [
-                  overdue.length && `${pluralise(overdue.length, 'commitment')} overdue`,
-                  dueToday.length && `${dueToday.length} due today`,
-                  pending.length && `${pluralise(pending.length, 'proposal')} to confirm`,
-                ]
-                  .filter(Boolean)
-                  .join(', ')
-              : 'Nothing is overdue and your inbox is clear.'
+          const parts = [
+            overdue.length ? t('dashboard.sumOverdue', { count: overdue.length }) : '',
+            dueToday.length ? t('dashboard.sumToday', { count: dueToday.length }) : '',
+            pending.length ? t('dashboard.sumPending', { count: pending.length }) : '',
+          ].filter(Boolean)
+          const summary = parts.length ? fmt.list(parts) : t('dashboard.allClear')
 
           return (
             <div className="space-y-6">
               <p className="sr-only" aria-live="polite">
                 {summary}
               </p>
-              <ul className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" aria-label="Summary">
+              <ul className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" aria-label={t('dashboard.summaryLabel')}>
                 <li>
-                  <MetricCard label="Pending confirmation" value={pending.length} hint="Proposals awaiting review" to="/capture/review" icon={<Inbox />} tone="primary" />
+                  <MetricCard label={t('metric.pending')} value={pending.length} hint={t('metric.pendingHint')} to="/capture/review" icon={<Inbox />} tone="primary" />
                 </li>
                 <li>
-                  <MetricCard label="Overdue" value={overdue.length} hint={overdue.length ? 'Past their due date' : 'Nothing overdue'} to="/commitments?view=overdue" icon={<AlarmClock />} tone="danger" />
+                  <MetricCard label={t('metric.overdue')} value={overdue.length} hint={overdue.length ? t('metric.overdueHint') : t('metric.overdueNone')} to="/commitments?view=overdue" icon={<AlarmClock />} tone="danger" />
                 </li>
                 <li>
-                  <MetricCard label="Due today" value={dueToday.length} hint="Open commitments" to="/commitments?view=today" icon={<CalendarCheck2 />} tone="warning" />
+                  <MetricCard label={t('metric.today')} value={dueToday.length} hint={t('metric.todayHint')} to="/commitments?view=today" icon={<CalendarCheck2 />} tone="warning" />
                 </li>
                 <li>
-                  <MetricCard label="Upcoming" value={upcoming.length} hint="Dated, after today" to="/commitments?view=upcoming" icon={<CalendarRange />} />
+                  <MetricCard label={t('metric.upcoming')} value={upcoming.length} hint={t('metric.upcomingHint')} to="/commitments?view=upcoming" icon={<CalendarRange />} />
                 </li>
               </ul>
 
               <div className="grid gap-6 xl:grid-cols-5 xl:items-start">
                 <SectionCard
                   className="xl:col-span-3"
-                  title="Today's priorities"
-                  description="Overdue and due-today commitments, oldest first"
+                  title={t('dashboard.priorities')}
+                  description={t('dashboard.prioritiesDesc')}
                   action={
-                    <Link to="/commitments" className="text-sm font-medium text-primary hover:underline">
-                      All commitments
+                    <Link to="/commitments" className="shrink-0 text-sm font-medium text-primary hover:underline">
+                      {t('dashboard.allCommitments')}
                     </Link>
                   }
                 >
                   {priorities.length === 0 ? (
-                    <EmptyState compact icon={<CheckCircle2 />} title="You're clear for today" description="No overdue or due-today commitments." />
+                    <EmptyState compact icon={<CheckCircle2 />} title={t('dashboard.clearTitle')} description={t('dashboard.clearDesc')} />
                   ) : (
                     <ul className="divide-y divide-line">
                       {priorities.map((c) => (
@@ -107,12 +101,12 @@ export function DashboardPage() {
 
                 <SectionCard
                   className="xl:col-span-2"
-                  title="Pending confirmations"
-                  description="Nothing becomes memory until you approve it"
+                  title={t('dashboard.pending')}
+                  description={t('dashboard.pendingDesc')}
                   action={
                     pending.length > 0 && (
-                      <Link to="/capture/review" className="text-sm font-medium text-primary hover:underline">
-                        Review all
+                      <Link to="/capture/review" className="shrink-0 text-sm font-medium text-primary hover:underline">
+                        {t('dashboard.reviewAll')}
                       </Link>
                     )
                   }
@@ -121,11 +115,11 @@ export function DashboardPage() {
                     <EmptyState
                       compact
                       icon={<Inbox />}
-                      title="Inbox is clear"
-                      description="Captured notes will produce proposals here."
+                      title={t('dashboard.inboxClear')}
+                      description={t('dashboard.inboxClearDesc')}
                       action={
                         <Button asChild variant="secondary" size="sm">
-                          <Link to="/capture/new">Capture something</Link>
+                          <Link to="/capture/new">{t('dashboard.captureSomething')}</Link>
                         </Button>
                       }
                     />
@@ -137,7 +131,7 @@ export function DashboardPage() {
                     </ul>
                   )}
                   {pending.length > 4 && (
-                    <p className="border-t border-line px-5 py-3 text-xs text-ink-muted">+ {pluralise(pending.length - 4, 'more proposal')}</p>
+                    <p className="border-t border-line px-5 py-3 text-xs text-ink-muted">{t('dashboard.moreProposals', { count: pending.length - 4 })}</p>
                   )}
                 </SectionCard>
               </div>
@@ -145,15 +139,15 @@ export function DashboardPage() {
               <section aria-labelledby="recent-memories">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 id="recent-memories" className="text-sm font-semibold text-ink">
-                    Recent memories
+                    {t('dashboard.recentMemories')}
                   </h2>
                   <Link to="/memory" className="text-sm font-medium text-primary hover:underline">
-                    Business Memory
+                    {t('nav.memory')}
                   </Link>
                 </div>
                 {memories.length === 0 ? (
                   <Card>
-                    <EmptyState compact icon={<BookOpen />} title="No confirmed memories yet" description="Approved memory proposals appear here." />
+                    <EmptyState compact icon={<BookOpen />} title={t('dashboard.noMemories')} description={t('dashboard.noMemoriesDesc')} />
                   </Card>
                 ) : (
                   <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -164,7 +158,7 @@ export function DashboardPage() {
                 )}
               </section>
 
-              <p className="text-xs text-ink-faint">Sample data for demonstration — these businesses, people and events are fictional.</p>
+              <p className="text-xs text-ink-faint">{t('dashboard.sampleNote')}</p>
             </div>
           )
         }}
@@ -174,6 +168,7 @@ export function DashboardPage() {
 }
 
 function DashboardSkeleton() {
+  const { t } = useI18n()
   return (
     <div className="space-y-6" aria-busy>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
@@ -183,7 +178,7 @@ function DashboardSkeleton() {
       </div>
       <div className="grid gap-6 xl:grid-cols-5">
         <Card className="xl:col-span-3">
-          <LoadingState label="Loading overview" rows={4} />
+          <LoadingState label={t('dashboard.loading')} rows={4} />
         </Card>
         <Card className="xl:col-span-2">
           <LoadingState rows={3} />

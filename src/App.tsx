@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/states'
 import { ToastProvider } from '@/components/Toaster'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { AskPage } from '@/pages/AskPage'
+import { AskPage } from '@/pages/ask/AskPage'
 import { CapturePage } from '@/pages/CapturePage'
 import { CommitmentDetailPage } from '@/pages/CommitmentDetailPage'
 import { CommitmentsPage } from '@/pages/CommitmentsPage'
@@ -14,6 +14,8 @@ import { MemoryDetailPage, MemoryListPage } from '@/pages/MemoryPages'
 import { PeopleListPage, PersonDetailPage } from '@/pages/PeoplePages'
 import { ReviewInboxPage } from '@/pages/review/ReviewInboxPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { VoicePrefsProvider } from '@/features/voice/VoicePrefsProvider'
+import { I18nProvider, useI18n } from '@/i18n/I18nProvider'
 import { AppStoreProvider } from '@/store/AppStore'
 import { Navigate, Outlet } from 'react-router-dom'
 
@@ -26,15 +28,16 @@ function Providers() {
 }
 
 function NotFound() {
+  const { t } = useI18n()
   return (
     <Card>
       <EmptyState
         icon={<Compass />}
-        title="Page not found"
-        description="This address doesn't match any page in Nenaivu."
+        title={t('notFound.title')}
+        description={t('notFound.desc')}
         action={
           <Button asChild variant="secondary" size="sm">
-            <Link to="/">Go to Overview</Link>
+            <Link to="/">{t('notFound.goOverview')}</Link>
           </Button>
         }
       />
@@ -73,8 +76,12 @@ const router = createHashRouter([
 
 export default function App() {
   return (
-    <AppStoreProvider>
-      <RouterProvider router={router} />
-    </AppStoreProvider>
+    <I18nProvider>
+      <VoicePrefsProvider>
+        <AppStoreProvider>
+          <RouterProvider router={router} />
+        </AppStoreProvider>
+      </VoicePrefsProvider>
+    </I18nProvider>
   )
 }

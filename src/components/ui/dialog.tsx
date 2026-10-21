@@ -1,6 +1,7 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useI18n } from '@/i18n/I18nProvider'
 import { cn } from '@/lib/utils'
 
 export const Dialog = DialogPrimitive.Root
@@ -16,6 +17,7 @@ interface DialogContentProps {
 }
 
 export function DialogContent({ title, description, children, footer, className }: DialogContentProps) {
+  const { t } = useI18n()
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-ink/40 data-[state=open]:animate-in" />
@@ -37,7 +39,7 @@ export function DialogContent({ title, description, children, footer, className 
         {footer && <div className="flex flex-col-reverse gap-2 px-6 pt-6 pb-6 sm:flex-row sm:justify-end">{footer}</div>}
         <DialogPrimitive.Close
           className="absolute top-4 right-4 rounded-input p-1.5 text-ink-muted hover:bg-subtle hover:text-ink"
-          aria-label="Close"
+          aria-label={t('dialog.close')}
         >
           <X className="size-4" />
         </DialogPrimitive.Close>
@@ -48,16 +50,17 @@ export function DialogContent({ title, description, children, footer, className 
 
 /** Left-hand slide-over panel, used for mobile navigation. */
 export function SheetContent({ title, children }: { title: string; children: ReactNode }) {
+  const { t } = useI18n()
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-ink/40" />
       <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-line bg-surface shadow-pop focus:outline-none">
         <DialogPrimitive.Title className="sr-only">{title}</DialogPrimitive.Title>
-        <DialogPrimitive.Description className="sr-only">Main navigation</DialogPrimitive.Description>
+        <DialogPrimitive.Description className="sr-only">{t('nav.sheetDesc')}</DialogPrimitive.Description>
         {children}
         <DialogPrimitive.Close
           className="absolute top-4 right-3 rounded-input p-1.5 text-ink-muted hover:bg-subtle hover:text-ink"
-          aria-label="Close navigation"
+          aria-label={t('nav.close')}
         >
           <X className="size-4" />
         </DialogPrimitive.Close>

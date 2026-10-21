@@ -1,6 +1,7 @@
 import { CheckCircle2, Info, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { useI18n } from '@/i18n/I18nProvider'
 import { createId } from '@/lib/utils'
 
 interface Toast {
@@ -14,6 +15,7 @@ const ToastContext = createContext<(t: Omit<Toast, 'id'>) => void>(() => {})
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
+  const { t: tr } = useI18n()
   const dismiss = useCallback((id: string) => setToasts((t) => t.filter((x) => x.id !== id)), [])
   const push = useCallback(
     (t: Omit<Toast, 'id'>) => {
@@ -39,7 +41,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 </Link>
               )}
             </div>
-            <button onClick={() => dismiss(t.id)} className="rounded p-0.5 text-ink-faint hover:text-ink" aria-label="Dismiss notification">
+            <button onClick={() => dismiss(t.id)} className="rounded p-0.5 text-ink-faint hover:text-ink" aria-label={tr('toast.dismiss')}>
               <X className="size-4" />
             </button>
           </div>

@@ -7,6 +7,8 @@ import { Notice } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Label, Textarea } from '@/components/ui/form'
+import { serviceErrorText } from '@/i18n/domain'
+import { useI18n } from '@/i18n/I18nProvider'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/AppStore'
 
@@ -15,10 +17,21 @@ const MIN_CHARS = 10
 const MAX_FILE_BYTES = 1_000_000
 const SUPPORTED_EXT = ['txt', 'md', 'csv']
 
+/** Example notes are sample business content, so they are not translated with the UI. */
 const EXAMPLES = [
-  'Call with Priya Raman from Lotus Apparel. She confirmed the spring order will be 1,500 m, not 1,200 m. We need to send the revised quote tomorrow. Priya will share the final colour cards next week.',
-  'Spoke to Arjun at Northwind Logistics. The corrected freight invoice is delayed. He promised to send it within 3 days.',
-]
+  {
+    labelKey: 'capture.exampleCustomer',
+    text: 'Call with Priya Raman from Lotus Apparel. She confirmed the spring order will be 1,500 m, not 1,200 m. We need to send the revised quote tomorrow. Priya will share the final colour cards next week.',
+  },
+  {
+    labelKey: 'capture.exampleSupplier',
+    text: 'Spoke to Arjun at Northwind Logistics. The corrected freight invoice is delayed. He promised to send it within 3 days.',
+  },
+  {
+    labelKey: 'capture.exampleTamil',
+    text: 'அர்ஜுனுடன் பேசினேன். திருத்திய சரக்குக் கட்டண இன்வாய்ஸ் இன்னும் வரவில்லை. அடுத்த வாரம் அனுப்புவதாகச் சொன்னார்.',
+  },
+] as const
 
 type Phase = 'idle' | 'saving' | 'extracting' | 'error'
 
@@ -40,6 +53,7 @@ export function CapturePage() {
   const fileInput = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const ids = { text: useId(), file: useId(), counter: useId() }
+  const { t, tx, fmt } = useI18n()
 
   const busy = phase === 'saving' || phase === 'extracting'
   const content = file ? file.content : text
@@ -53,9 +67,9 @@ export function CapturePage() {
 
   const validate = (): string | null => {
     const trimmed = content.trim()
-    if (!trimmed) return file ? 'This file is empty.' : 'Write or paste something to capture.'
-    if (trimmed.length < MIN_CHARS) return `Add a little more detail — at least ${MIN_CHARS} characters.`
-    if (content.length > MAX_CHARS) return `Captures are limited to ${MAX_CHARS.toLocaleString()} characters.`
+    if (!trimmed) return file ? t('capture.errFileEmpty') : t('capture.errEmpty')
+    if (trimmed.length < MIN_CHARS) return t('capture.errShort', { min: MIN_CHARS })
+    if (content.length > MAX_CHARS) return t('capture.errLong', { max: fmt.number(MAX_CHARS) })
     return null
   }
 
@@ -85,7 +99,7 @@ export function CapturePage() {
       })
     } catch (err) {
       setPhase('error')
-      setServiceError(err instanceof Error ? err.message : 'The capture could not be processed.')
+      setServiceError(serviceErrorText(err, t))
     }
   }
 
@@ -95,23 +109,23 @@ export function CapturePage() {
     if (!f) return
     const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
     if (!SUPPORTED_EXT.includes(ext)) {
-      setFileError(`“${f.name}” can't be read yet. This prototype supports .txt, .md and .csv files.`)
+      setFileError(t('capture.fileUnsupported', { name: f.name }))
       return
     }
     if (f.size > MAX_FILE_BYTES) {
-      setFileError(`“${f.name}” is larger than 1 MB.`)
+      setFileError(t('capture.fileTooLarge', { name: f.name }))
       return
     }
     try {
       const content = await f.text()
       if (content.length > MAX_CHARS) {
-        setFileError(`“${f.name}” has ${content.length.toLocaleString()} characters; the limit is ${MAX_CHARS.toLocaleString()}.`)
+        setFileError(t('capture.fileTooLong', { name: f.name, count: fmt.number(content.length), max: fmt.number(MAX_CHARS) }))
         return
       }
       setFile({ name: f.name, size: f.size, content })
       setFieldError(null)
     } catch {
-      setFileError(`“${f.name}” could not be read.`)
+      setFileError(t('capture.fileUnreadable', { name: f.name }))
     } finally {
       if (fileInput.current) fileInput.current.value = ''
     }
@@ -119,7 +133,7 @@ export function CapturePage() {
 
   return (
     <>
-      <PageHeader title="Capture & Review" description="Write down what happened. Nenaivu proposes records; you decide what is remembered." />
+      <PageHeader title={t('nav.capture')} description={t('capture.desc')} />
       <CaptureTabs />
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -129,13 +143,13 @@ export function CapturePage() {
               {!file ? (
                 <div className="space-y-2">
                   <div className="flex items-baseline justify-between gap-4">
-                    <Label htmlFor={ids.text}>What happened?</Label>
+                    <Label htmlFor={ids.text}>{t('capture.label')}</Label>
                     <span
                       id={ids.counter}
                       className={cn('tabular text-xs', remaining < 0 ? 'text-danger' : remaining < 300 ? 'text-warning' : 'text-ink-muted')}
                       aria-live={remaining < 300 ? 'polite' : 'off'}
                     >
-                      {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()}
+                      {fmt.number(text.length)} / {fmt.number(MAX_CHARS)}
                     </span>
                   </div>
                   <Textarea
@@ -152,7 +166,7 @@ export function CapturePage() {
                     }}
                     rows={9}
                     maxLength={MAX_CHARS + 500}
-                    placeholder="e.g. Call with Priya from Lotus Apparel — we promised revised samples by 28 Oct. She mentioned their budget is approved for Q4."
+                    placeholder={t('capture.placeholder')}
                     aria-invalid={!!fieldError}
                     aria-describedby={[ids.counter, fieldError ? `${ids.text}-error` : `${ids.text}-hint`].join(' ')}
                     className="min-h-52 resize-y text-[15px]"
@@ -163,20 +177,20 @@ export function CapturePage() {
                     </p>
                   ) : (
                     <p id={`${ids.text}-hint`} className="text-xs text-ink-muted">
-                      Meeting notes, calls, emails, WhatsApp messages — paste as-is. The original is kept exactly as written.
+                      {t('capture.hint')}
                     </p>
                   )}
                   {!text && !busy && (
                     <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <span className="text-xs text-ink-muted">Try an example:</span>
-                      {EXAMPLES.map((ex, i) => (
+                      <span className="text-xs text-ink-muted">{t('capture.tryExample')}</span>
+                      {EXAMPLES.map((ex) => (
                         <button
-                          key={i}
+                          key={ex.labelKey}
                           type="button"
-                          onClick={() => setText(ex)}
+                          onClick={() => setText(ex.text)}
                           className="rounded-full border border-line px-2.5 py-1 text-xs text-ink-muted hover:border-line-strong hover:text-ink"
                         >
-                          {i === 0 ? 'Customer call' : 'Supplier update'}
+                          {t(ex.labelKey)}
                         </button>
                       ))}
                     </div>
@@ -184,21 +198,21 @@ export function CapturePage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-ink">Attached file</p>
+                  <p className="text-sm font-medium text-ink">{t('capture.attachedFile')}</p>
                   <div className="rounded-input border border-line">
                     <div className="flex items-center gap-3 border-b border-line px-3 py-2.5">
                       <FileText className="size-4 text-ink-muted" aria-hidden />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-ink">{file.name}</p>
                         <p className="text-xs text-ink-muted">
-                          {(file.size / 1024).toFixed(1)} KB · {file.content.length.toLocaleString()} characters · read in your browser
+                          {t('capture.fileMeta', { size: fmt.number(Math.round(file.size / 102.4) / 10), chars: fmt.number(file.content.length) })}
                         </p>
                       </div>
-                      <Button type="button" variant="ghost" size="icon-sm" onClick={() => setFile(null)} disabled={busy} aria-label={`Remove ${file.name}`}>
+                      <Button type="button" variant="ghost" size="icon-sm" onClick={() => setFile(null)} disabled={busy} aria-label={t('capture.removeFile', { name: file.name })}>
                         <X />
                       </Button>
                     </div>
-                    <pre className="max-h-56 overflow-auto px-3 py-2.5 font-mono text-xs whitespace-pre-wrap text-ink-muted">{file.content || '(empty file)'}</pre>
+                    <pre className="max-h-56 overflow-auto px-3 py-2.5 font-mono text-xs whitespace-pre-wrap text-ink-muted">{file.content || t('capture.emptyFile')}</pre>
                   </div>
                 </div>
               )}
@@ -206,9 +220,9 @@ export function CapturePage() {
               <div className="rounded-input border border-dashed border-line-strong bg-canvas px-4 py-3.5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-ink">Or capture from a file</p>
+                    <p className="text-sm font-medium text-ink">{t('capture.fromFile')}</p>
                     <p id={`${ids.file}-hint`} className="mt-0.5 text-xs text-ink-muted">
-                      Supported now: <strong className="font-medium text-ink">.txt, .md, .csv</strong> up to 1 MB. PDF, Word and images are not supported yet. Files are read locally and not uploaded anywhere.
+                      {tx('capture.fileHint', undefined, { b: (c) => <strong className="font-medium text-ink">{c}</strong> })}
                     </p>
                   </div>
                   <input
@@ -222,7 +236,7 @@ export function CapturePage() {
                     disabled={busy}
                   />
                   <Button type="button" variant="secondary" size="sm" onClick={() => fileInput.current?.click()} disabled={busy}>
-                    <Paperclip aria-hidden /> {file ? 'Replace file' : 'Choose file'}
+                    <Paperclip aria-hidden /> {file ? t('capture.replaceFile') : t('capture.chooseFile')}
                   </Button>
                 </div>
                 {fileError && (
@@ -236,27 +250,27 @@ export function CapturePage() {
                 <Notice
                   tone="danger"
                   icon={<AlertTriangle />}
-                  title="Capture was not processed"
+                  title={t('capture.failedTitle')}
                   action={
                     <Button type="submit" size="sm" variant="secondary">
-                      Try again
+                      {t('common.tryAgain')}
                     </Button>
                   }
                 >
-                  {serviceError} Your text is still here.
+                  {serviceError} {t('capture.failedKept')}
                 </Notice>
               )}
             </div>
 
             <div className="flex flex-col-reverse gap-3 border-t border-line bg-canvas px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <Button type="button" variant="ghost" size="sm" disabled title="Voice capture is planned for a later release" className="justify-start">
-                <Mic aria-hidden /> Voice note <span className="text-xs font-normal">(coming later)</span>
+              <Button type="button" variant="ghost" size="sm" disabled title={t('capture.voiceTitle')} className="justify-start">
+                <Mic aria-hidden /> {t('capture.voiceNote')} <span className="text-xs font-normal">{t('capture.comingLater')}</span>
               </Button>
               <div className="flex items-center gap-3">
-                <span className="hidden text-xs text-ink-faint sm:inline">Ctrl / ⌘ + Enter</span>
+                <span className="hidden text-xs text-ink-faint sm:inline">{t('capture.shortcut')}</span>
                 <Button type="submit" loading={busy} disabled={status !== 'ready'} className="w-full sm:w-auto">
                   {!busy && <Sparkles aria-hidden />}
-                  {busy ? 'Organising…' : 'Save & Organise'}
+                  {busy ? t('capture.submitting') : t('capture.submit')}
                 </Button>
               </div>
             </div>
@@ -267,25 +281,27 @@ export function CapturePage() {
 
         <aside className="space-y-4">
           <Card className="p-5">
-            <h2 className="text-sm font-semibold text-ink">What happens next</h2>
+            <h2 className="text-sm font-semibold text-ink">{t('capture.nextTitle')}</h2>
             <ol className="mt-3 space-y-3 text-sm">
-              {[
-                ['Saved as-is', 'Your original text is stored unchanged as the source.'],
-                ['Proposals drafted', 'Commitments, people and facts are suggested from it.'],
-                ['You confirm', 'Nothing becomes memory or a commitment until you approve it.'],
-              ].map(([t, d], i) => (
-                <li key={t} className="flex gap-3">
+              {(
+                [
+                  ['capture.step1Title', 'capture.step1'],
+                  ['capture.step2Title', 'capture.step2'],
+                  ['capture.step3Title', 'capture.step3'],
+                ] as const
+              ).map(([titleKey, descKey], i) => (
+                <li key={titleKey} className="flex gap-3">
                   <span className="tabular flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary-ink">{i + 1}</span>
                   <div>
-                    <p className="font-medium text-ink">{t}</p>
-                    <p className="text-ink-muted">{d}</p>
+                    <p className="font-medium text-ink">{t(titleKey)}</p>
+                    <p className="text-ink-muted">{t(descKey)}</p>
                   </div>
                 </li>
               ))}
             </ol>
           </Card>
-          <Notice tone="neutral" icon={<ShieldCheck className="text-ink-muted" />} title="Prototype processing">
-            Extraction is simulated with simple rules, not AI. Unclear dates are flagged for you to resolve rather than guessed. Data stays in this browser tab.
+          <Notice tone="neutral" icon={<ShieldCheck className="text-ink-muted" />} title={t('capture.prototypeTitle')}>
+            {t('capture.prototypeNote')}
           </Notice>
         </aside>
       </div>
@@ -294,9 +310,10 @@ export function CapturePage() {
 }
 
 function ProcessingSteps({ phase }: { phase: Phase }) {
+  const { t } = useI18n()
   const steps = [
-    { key: 'saving', label: 'Saving the original text' },
-    { key: 'extracting', label: 'Drafting proposals (simulated)' },
+    { key: 'saving', label: t('capture.stepSaving') },
+    { key: 'extracting', label: t('capture.stepDrafting') },
   ]
   const idx = steps.findIndex((s) => s.key === phase)
   return (
@@ -312,7 +329,7 @@ function ProcessingSteps({ phase }: { phase: Phase }) {
               <span className="size-4 rounded-full border border-line" aria-hidden />
             )}
             {s.label}
-            {i < idx && <span className="sr-only">(done)</span>}
+            {i < idx && <span className="sr-only">{t('capture.stepDone')}</span>}
           </li>
         ))}
       </ul>

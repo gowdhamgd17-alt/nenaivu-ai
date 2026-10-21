@@ -11,6 +11,7 @@ npm install
 npm run dev            # http://localhost:5173
 npm run build          # typecheck + production build to dist/
 npm run build:single   # one self-contained dist/index.html (used for the hosted preview)
+npm test               # Vitest unit tests (i18n, preferences, mock Ask, voice state machine)
 ```
 
 ## Stack
@@ -58,6 +59,26 @@ src/
 - Voice capture — disabled, labelled "coming later".
 - Auth, sign-out, notifications delivery, reminders — not implemented; UI says so.
 - Settings → Prototype controls: toggle latency, force service failures, reset data.
+
+## Tamil localization
+
+- **Dictionaries:** `src/i18n/messages/en.ts` is the source of keys; `ta.ts` is typed against it, so a missing key fails the build. Unit tests also check that every Tamil string keeps the English placeholders and tags.
+- **API:** `useI18n()` returns `t(key, params)` (plurals via `_one`/`_other` and `Intl.PluralRules`), `tx()` for inline `<b>`/`<link>` tags, and `fmt` for locale-aware dates, relative times, numbers, lists and due-date labels.
+- **Language ids:** `en`, `ta`. The choice is stored in `localStorage` (`nenaivu.lang`), defaults to English, applies instantly and sets `<html lang>`.
+- **What is not translated:** captured sources, record titles and summaries, names, and past Ask answers. The service returns codes (activity events, uncertainty notes, date reasons, errors, capture channels), and the UI renders those in the current language.
+- **Font:** Noto Sans Tamil is bundled and falls back to Nirmala UI, Tamil Sangam MN and Latha.
+
+## Voice in Ask Nenaivu
+
+- **Speech to text:** `src/services/speech/browserSpeechToText.ts` uses the Web Speech API. Users pick English (India) or Tamil (India). "Auto-detect" appears but stays disabled, because browser recognition can't detect the spoken language. The transcript goes into the editable message box and is sent through the normal typed-chat path.
+  - Voice input has six states: idle, requesting permission, listening, processing, transcript ready, and error.
+  - Errors covered: unsupported browser, permission denied, no speech, language unsupported, network failure, and no microphone.
+  - A one-time disclosure explains that Chrome and Edge send audio to the browser vendor's speech service. Nenaivu itself stores no audio.
+- **Text to speech:** `browserTextToSpeech.ts` waits for voices that load asynchronously and splits long text into chunks.
+  - It prefers an exact `ta-IN`/`en-IN` voice, falls back to another voice in the same language, and otherwise tells the user no voice was found.
+  - Only one answer plays at a time, and playback stops when you leave the page.
+- **Answer language** is a separate setting from the interface language: follow the question, English, or Tamil. It is passed to the service as `AskInput.responseLanguage`. The mock (`mockAsk.ts`) answers from fixed English and Tamil templates and a small Tamil keyword glossary.
+- **Swapping providers:** `src/services/speech/index.ts` chooses the providers. Replace them with server-backed speech-to-text and text-to-speech services; API keys must stay on the server.
 
 ## Next backend integration steps
 

@@ -12,15 +12,15 @@ import { Button } from '@/components/ui/button'
 import { Card, SectionCard } from '@/components/ui/card'
 import { Input, Select } from '@/components/ui/form'
 import { WorkspaceView } from '@/components/WorkspaceView'
-import { formatDateTime } from '@/lib/dates'
-import { pluralise } from '@/lib/utils'
+import { useI18n } from '@/i18n/I18nProvider'
 import type { WorkspaceData } from '@/services'
 import { activityFor, findCapture, findPerson, personLabel } from '@/store/selectors'
 
 export function MemoryListPage() {
+  const { t } = useI18n()
   return (
     <>
-      <PageHeader title="Business Memory" description="Facts and context your team has confirmed, each linked to where it came from." />
+      <PageHeader title={t('nav.memory')} description={t('memory.desc')} />
       <WorkspaceView>{(data) => <MemoryList data={data} />}</WorkspaceView>
     </>
   )
@@ -29,6 +29,7 @@ export function MemoryListPage() {
 function MemoryList({ data }: { data: WorkspaceData }) {
   const [q, setQ] = useState('')
   const [personId, setPersonId] = useState('')
+  const { t } = useI18n()
   const items = useMemo(() => {
     const query = q.trim().toLowerCase()
     return [...data.memories]
@@ -43,11 +44,11 @@ function MemoryList({ data }: { data: WorkspaceData }) {
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-faint" aria-hidden />
-          <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter memories" className="pl-9" aria-label="Filter memories" />
+          <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('memory.filter')} className="pl-9" aria-label={t('memory.filter')} />
         </div>
-        <div className="sm:w-60">
-          <Select value={personId} onChange={(e) => setPersonId(e.target.value)} aria-label="Filter by person or organisation">
-            <option value="">Everyone</option>
+        <div className="sm:w-64">
+          <Select value={personId} onChange={(e) => setPersonId(e.target.value)} aria-label={t('memory.filterPerson')}>
+            <option value="">{t('common.everyone')}</option>
             {linkedPeople.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -57,18 +58,18 @@ function MemoryList({ data }: { data: WorkspaceData }) {
         </div>
       </div>
       <p className="text-xs text-ink-muted" aria-live="polite">
-        {pluralise(items.length, 'confirmed memory', 'confirmed memories')}
+        {t('memory.count', { count: items.length })}
       </p>
       {items.length === 0 ? (
         <Card>
           <EmptyState
             icon={<BookOpen />}
-            title={data.memories.length ? 'No memories match your filter' : 'No confirmed memories yet'}
-            description={data.memories.length ? 'Try a different search or person.' : 'Approve memory proposals in the Confirmation inbox to build your business memory.'}
+            title={data.memories.length ? t('memory.noMatch') : t('memory.none')}
+            description={data.memories.length ? t('memory.tryDifferent') : t('memory.approveHint')}
             action={
               !data.memories.length && (
                 <Button asChild variant="secondary" size="sm">
-                  <Link to="/capture/new">Capture something</Link>
+                  <Link to="/capture/new">{t('dashboard.captureSomething')}</Link>
                 </Button>
               )
             }
@@ -91,30 +92,31 @@ export function MemoryDetailPage() {
 
 function MemoryDetail({ data }: { data: WorkspaceData }) {
   const { id } = useParams()
+  const { t, fmt } = useI18n()
   const memory = data.memories.find((m) => m.id === id)
-  if (!memory) return <NotInWorkspace kind="memory" back={{ to: '/memory', label: 'Back to Business Memory' }} />
+  if (!memory) return <NotInWorkspace kind="memory" back={{ to: '/memory', label: t('nav.memory') }} />
   const capture = findCapture(data, memory.sourceCaptureId)
   const proposal = memory.proposalId ? data.proposals.find((p) => p.id === memory.proposalId) : undefined
   const people = memory.personIds.map((pid) => findPerson(data, pid)).filter((p) => !!p)
 
   return (
     <>
-      <PageHeader back={{ to: '/memory', label: 'Business Memory' }} title={memory.title} description={`Confirmed ${formatDateTime(memory.confirmedAt)}`} />
+      <PageHeader back={{ to: '/memory', label: t('nav.memory') }} title={memory.title} description={t('memory.confirmedAt', { date: fmt.dateTime(memory.confirmedAt) })} />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <SectionCard title="Memory" description="Confirmed by a person in this workspace">
-            <p className="px-5 py-4 text-[15px] leading-relaxed text-ink">{memory.summary || 'No further detail.'}</p>
+          <SectionCard title={t('memory.section')} description={t('memory.sectionDesc')}>
+            <p className="px-5 py-4 text-[15px] leading-relaxed text-ink">{memory.summary || t('memory.noDetail')}</p>
           </SectionCard>
-          <SectionCard title="Source" description="Original captured text, unchanged">
+          <SectionCard title={t('memory.source')} description={t('memory.sourceDesc')}>
             <div className="p-5">
               <SourceReference capture={capture} highlight={proposal?.sourceExcerpt} />
             </div>
           </SectionCard>
         </div>
         <div className="space-y-6">
-          <SectionCard title="Related">
+          <SectionCard title={t('memory.related')}>
             {people.length === 0 ? (
-              <p className="px-5 py-4 text-sm text-ink-muted">No people or organisations linked.</p>
+              <p className="px-5 py-4 text-sm text-ink-muted">{t('memory.noRelated')}</p>
             ) : (
               <ul className="divide-y divide-line">
                 {people.map((p) => (
@@ -128,8 +130,8 @@ function MemoryDetail({ data }: { data: WorkspaceData }) {
               </ul>
             )}
           </SectionCard>
-          <SectionCard title="History">
-            <ActivityList events={activityFor(data, memory.id)} empty="Created before activity tracking." />
+          <SectionCard title={t('memory.history')}>
+            <ActivityList events={activityFor(data, memory.id)} empty={t('memory.historyEmpty')} />
           </SectionCard>
         </div>
       </div>

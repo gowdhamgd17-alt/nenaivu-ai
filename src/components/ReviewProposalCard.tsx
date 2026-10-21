@@ -1,6 +1,6 @@
 import { Check, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { relativeTime } from '@/lib/dates'
+import { useI18n } from '@/i18n/I18nProvider'
 import { cn } from '@/lib/utils'
 import type { Proposal } from '@/types/models'
 import { DeadlineProposalBadge, DuplicateBadge, RecordTypeBadge, UncertaintyBadge } from './badges'
@@ -16,6 +16,7 @@ interface ReviewProposalCardProps {
 /** Compact proposal summary used in the Confirmation Inbox list and on the dashboard. */
 export function ReviewProposalCard({ proposal, personLabel, to, selected }: ReviewProposalCardProps) {
   const { fields } = proposal
+  const { t, fmt } = useI18n()
   return (
     <li>
       <Link
@@ -28,8 +29,8 @@ export function ReviewProposalCard({ proposal, personLabel, to, selected }: Revi
       >
         <div className="flex flex-wrap items-center gap-1.5">
           <RecordTypeBadge type={proposal.recordType} partyKind={fields.partyKind} />
-          {proposal.status === 'approved' && <StatusBadge tone="success" icon={<Check />}>Approved</StatusBadge>}
-          {proposal.status === 'rejected' && <StatusBadge icon={<X />}>Rejected</StatusBadge>}
+          {proposal.status === 'approved' && <StatusBadge tone="success" icon={<Check />}>{t('badge.approved')}</StatusBadge>}
+          {proposal.status === 'rejected' && <StatusBadge icon={<X />}>{t('badge.rejected')}</StatusBadge>}
           {proposal.status === 'pending' && (
             <>
               {proposal.recordType === 'commitment' && <DeadlineProposalBadge deadline={fields.deadline} />}
@@ -40,7 +41,7 @@ export function ReviewProposalCard({ proposal, personLabel, to, selected }: Revi
         </div>
         <p className="mt-2 text-sm font-medium text-ink">{fields.title}</p>
         <p className="mt-1 truncate text-xs text-ink-muted">
-          {[personLabel ?? fields.personName, `Proposed ${relativeTime(proposal.createdAt)}`].filter(Boolean).join(' · ')}
+          {[personLabel ?? fields.personName, t('proposalCard.proposed', { time: fmt.relative(proposal.createdAt) })].filter(Boolean).join(' · ')}
         </p>
       </Link>
     </li>

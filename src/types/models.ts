@@ -43,6 +43,7 @@ export interface Person {
 }
 
 export type CaptureKind = 'text' | 'file'
+export type CaptureChannel = 'quick_capture' | 'file'
 
 export interface Capture {
   id: ID
@@ -51,8 +52,8 @@ export interface Capture {
   /** Original text exactly as entered or read from the file. */
   content: string
   fileName?: string
-  /** Where it came from, e.g. "Quick Capture". */
-  channel: string
+  /** Where it came from. Rendered through the UI dictionary, never stored as display text. */
+  channel: CaptureChannel
   createdAt: ISODateTime
   createdBy: ID
 }
@@ -65,8 +66,40 @@ export type RecordType = 'commitment' | 'memory' | 'person'
  */
 export type ProposedDeadline =
   | { kind: 'none' }
-  | { kind: 'exact'; date: ISODate; phrase: string; note?: string }
-  | { kind: 'ambiguous'; phrase: string; reason: string }
+  | { kind: 'exact'; date: ISODate; phrase: string; note?: Uncertainty }
+  | { kind: 'ambiguous'; phrase: string; reason: DeadlineReason }
+
+/**
+ * Machine-readable explanation of why a proposal needs checking. The service returns
+ * codes and parameters; the UI renders them in the interface language.
+ * `phrase` / `name` params are quoted from the source and are never translated.
+ */
+export type UncertaintyCode =
+  | 'name_matched'
+  | 'name_only_match'
+  | 'name_ambiguous'
+  | 'pronoun_assumed'
+  | 'not_confirmed_contact'
+  | 'direction_unclear'
+  | 'no_deadline'
+  | 'year_assumed'
+  | 'resolved_today'
+  | 'resolved_tomorrow'
+  | 'counted_days'
+  | 'combined_sentences'
+  | 'org_detected'
+  | 'person_detected'
+  | 'role_unknown'
+  | 'non_english_note'
+
+export interface Uncertainty {
+  code: UncertaintyCode
+  params?: Record<string, string | number>
+}
+
+export type DeadlineReason =
+  | { code: 'weekday'; weekday: number } // 0 = Monday … 6 = Sunday
+  | { code: 'month_end' | 'week_end' | 'no_day' | 'not_a_date' }
 
 export type CommitmentDirection = 'we_owe' | 'owed_to_us'
 
@@ -93,8 +126,8 @@ export interface Proposal {
   fields: ProposalFields
   /** The exact span of the capture this proposal was derived from. */
   sourceExcerpt: string
-  /** Plain-language reasons the reviewer should double-check. No percentages. */
-  uncertainties: string[]
+  /** Reasons the reviewer should double-check. Explained in words, never as percentages. */
+  uncertainties: Uncertainty[]
   possibleDuplicateOf?: { recordType: 'commitment' | 'memory' | 'person'; id: ID }
   createdAt: ISODateTime
   resolvedAt?: ISODateTime
@@ -141,13 +174,33 @@ export type ActivityType =
   | 'commitment_status_changed'
   | 'commitment_due_date_changed'
 
+/**
+ * Structured details for an activity event. Titles, file names and reasons are
+ * user content and shown as written; everything else is rendered by the UI.
+ */
+export interface ActivityParams {
+  captureKind?: CaptureKind
+  fileName?: string
+  proposalCount?: number
+  recordType?: RecordType
+  title?: string
+  /** Field codes the reviewer changed when approving. */
+  editedFields?: EditableField[]
+  reason?: string
+  from?: CommitmentStatus
+  to?: CommitmentStatus
+  date?: ISODate
+}
+
+export type EditableField = 'type' | 'title' | 'details' | 'role' | 'person' | 'direction' | 'contactType' | 'deadline'
+
 export interface ActivityEvent {
   id: ID
   workspaceId: ID
   type: ActivityType
   at: ISODateTime
   actorId: ID
-  message: string
+  params: ActivityParams
   /** Records this event relates to, for per-record history. */
   refs: ID[]
 }

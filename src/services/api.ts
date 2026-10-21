@@ -10,6 +10,7 @@ import type {
   Capture,
   Commitment,
   CommitmentStatus,
+  EditableField,
   ID,
   ISODate,
   Memory,
@@ -55,8 +56,8 @@ export interface ApprovalInput {
   partyKind: ProposalFields['partyKind']
   /** A confirmed date, or null for "no deadline". Never an unresolved phrase. */
   dueDate: ISODate | null
-  /** Field names the reviewer changed from the proposal, for the audit trail. */
-  editedFields: string[]
+  /** Fields the reviewer changed from the proposal, for the audit trail. */
+  editedFields: EditableField[]
 }
 
 export interface ApprovalResult {
@@ -85,21 +86,48 @@ export interface CommitmentUpdateResult {
 
 export type AskSourceType = 'memory' | 'commitment' | 'person'
 
+/** Language of an Ask answer. Independent of the interface language. */
+export type AnswerLanguage = 'en' | 'ta'
+/** Reviewer's preference: follow the question's language, or always answer in one language. */
+export type AnswerLanguagePreference = 'auto' | AnswerLanguage
+
+export interface AskInput {
+  question: string
+  responseLanguage: AnswerLanguagePreference
+}
+
+/**
+ * A confirmed record supporting an answer. Structured, so the UI can label it in the
+ * interface language; record titles and summaries stay as written.
+ */
 export interface AskMatch {
   type: AskSourceType
   id: ID
   title: string
-  detail: string
   sourceCaptureId?: ID
   matchedTerms: string[]
+  commitment?: { status: CommitmentStatus; dueDate?: ISODate; personName?: string; description: string }
+  memory?: { summary: string }
+  person?: { kind: 'person' | 'organisation'; role?: string; organisationName?: string }
 }
 
 export interface AskResult {
   question: string
   askedAt: string
-  /** Confirmed records that contain the question's key terms. */
+  /** Language the answer text is written in. */
+  language: AnswerLanguage
+  /** Whether `language` came from detecting the question or from the user's preference. */
+  languageSource: 'detected' | 'preference'
+  /** `unsupported` = no confirmed record supports an answer; nothing is guessed. */
+  status: 'answered' | 'unsupported'
+  /** Answer text in `language`. Stored as returned; never re-translated by the UI. */
+  summary: string
+  /** Sentence (in `language`) listing parts of the question no record covers. */
+  unanswered?: string
+  /** Plain text for speech synthesis, in `language`. */
+  speechText: string
   matches: AskMatch[]
-  /** Key terms that no confirmed record mentions. */
+  /** Question words no confirmed record mentions, as written in the question. */
   unmatchedTerms: string[]
 }
 
@@ -111,12 +139,31 @@ export interface NenaivuApi {
   approveProposal(workspaceId: ID, proposalId: ID, input: ApprovalInput): Promise<ApprovalResult>
   rejectProposal(workspaceId: ID, proposalId: ID, reason?: string): Promise<RejectionResult>
   updateCommitment(workspaceId: ID, commitmentId: ID, update: CommitmentUpdate): Promise<CommitmentUpdateResult>
-  ask(workspaceId: ID, question: string): Promise<AskResult>
+  ask(workspaceId: ID, input: AskInput): Promise<AskResult>
 }
 
+/** Stable error codes; the UI translates them. Messages are for logs only. */
+export type ServiceErrorCode =
+  | 'forced_failure'
+  | 'workspace_not_found'
+  | 'capture_empty'
+  | 'proposal_not_found'
+  | 'already_resolved'
+  | 'title_required'
+  | 'deadline_unresolved'
+  | 'person_not_in_workspace'
+  | 'commitment_not_found'
+  | 'unknown'
+
 export class ServiceError extends Error {
-  constructor(message: string) {
-    super(message)
+  readonly code: ServiceErrorCode
+  constructor(code: ServiceErrorCode, message?: string) {
+    super(message ?? code)
     this.name = 'ServiceError'
+    this.code = code
   }
+}
+
+export function errorCode(e: unknown): ServiceErrorCode {
+  return e instanceof ServiceError ? e.code : 'unknown'
 }

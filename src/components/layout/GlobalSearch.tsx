@@ -1,6 +1,7 @@
 import { BookOpen, Building2, ListChecks, Search, UserRound } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useI18n } from '@/i18n/I18nProvider'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/AppStore'
 
@@ -14,6 +15,7 @@ interface Result {
 
 function useSearchResults(query: string): Result[] {
   const { data } = useAppStore()
+  const { t } = useI18n()
   return useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!data || q.length < 2) return []
@@ -21,22 +23,22 @@ function useSearchResults(query: string): Result[] {
     const results: Result[] = [
       ...data.commitments
         .filter((c) => hit(c.title, c.description))
-        .map((c) => ({ id: c.id, label: c.title, meta: 'Commitment', to: `/commitments/${c.id}`, icon: <ListChecks /> })),
+        .map((c) => ({ id: c.id, label: c.title, meta: t('record.commitment'), to: `/commitments/${c.id}`, icon: <ListChecks /> })),
       ...data.memories
         .filter((m) => hit(m.title, m.summary))
-        .map((m) => ({ id: m.id, label: m.title, meta: 'Memory', to: `/memory/${m.id}`, icon: <BookOpen /> })),
+        .map((m) => ({ id: m.id, label: m.title, meta: t('record.memory'), to: `/memory/${m.id}`, icon: <BookOpen /> })),
       ...data.people
         .filter((p) => hit(p.name, p.role))
         .map((p) => ({
           id: p.id,
           label: p.name,
-          meta: p.kind === 'organisation' ? 'Organisation' : 'Person',
+          meta: p.kind === 'organisation' ? t('record.organisation') : t('record.person'),
           to: `/people/${p.id}`,
           icon: p.kind === 'organisation' ? <Building2 /> : <UserRound />,
         })),
     ]
     return results.slice(0, 8)
-  }, [data, query])
+  }, [data, query, t])
 }
 
 /**
@@ -51,6 +53,7 @@ export function GlobalSearch({ autoFocus, onDone, className }: { autoFocus?: boo
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
   const listId = useId()
+  const { t } = useI18n()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -84,8 +87,8 @@ export function GlobalSearch({ autoFocus, onDone, className }: { autoFocus?: boo
         aria-expanded={showPanel}
         aria-controls={listId}
         aria-activedescendant={showPanel && results[active] ? `${listId}-${active}` : undefined}
-        aria-label="Search memories, commitments and people"
-        placeholder="Search memory, commitments, people…"
+        aria-label={t('search.label')}
+        placeholder={t('search.placeholder')}
         autoFocus={autoFocus}
         value={query}
         onChange={(e) => {
@@ -118,9 +121,9 @@ export function GlobalSearch({ autoFocus, onDone, className }: { autoFocus?: boo
       {showPanel && (
         <div className="absolute inset-x-0 top-full z-40 mt-1.5 overflow-hidden rounded-card border border-line bg-surface shadow-pop">
           {results.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-ink-muted">No confirmed records match “{query.trim()}”.</p>
+            <p className="px-4 py-6 text-center text-sm text-ink-muted">{t('search.noResults', { query: query.trim() })}</p>
           ) : (
-            <ul id={listId} role="listbox" aria-label="Search results" className="max-h-80 overflow-y-auto p-1.5">
+            <ul id={listId} role="listbox" aria-label={t('search.results')} className="max-h-80 overflow-y-auto p-1.5">
               {results.map((r, i) => (
                 <li
                   key={r.id}
@@ -142,7 +145,7 @@ export function GlobalSearch({ autoFocus, onDone, className }: { autoFocus?: boo
               ))}
             </ul>
           )}
-          <p className="border-t border-line px-4 py-2 text-[11px] text-ink-muted">Searching confirmed records in this workspace</p>
+          <p className="border-t border-line px-4 py-2 text-[11px] text-ink-muted">{t('search.scope')}</p>
         </div>
       )}
     </div>
