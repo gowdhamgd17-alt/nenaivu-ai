@@ -1,0 +1,71 @@
+# Nenaivu AI — MVP interface prototype
+
+Business-memory app: **Capture → Understand → Confirm → Remember → Follow Through → Recall.**
+
+This is a functional **frontend prototype**. There is no backend and no AI. All data is fictional mock data held in memory; it resets on reload.
+
+## Run
+
+```bash
+npm install
+npm run dev            # http://localhost:5173
+npm run build          # typecheck + production build to dist/
+npm run build:single   # one self-contained dist/index.html (used for the hosted preview)
+```
+
+## Stack
+
+React 19 + TypeScript, Vite, Tailwind CSS v4 (tokens in `src/index.css` `@theme`), shadcn/ui-style primitives built on Radix (Dialog, Dropdown, Slot), Lucide icons, React Router (hash router so the static build works anywhere — switch to `createBrowserRouter` behind a server with SPA fallback).
+
+The shadcn CLI was not run (no registry access in the build environment); the equivalent primitives are hand-written in `src/components/ui/` with the same conventions (`cn`, `cva`, `asChild`).
+
+## Structure
+
+```
+src/
+  types/models.ts          Domain types: Capture, Proposal, Memory, Commitment, Person, ActivityEvent
+  services/api.ts          NenaivuApi interface — the only contract the UI uses
+  services/index.ts        Chooses the implementation (currently mockApi)
+  services/mock/           MOCK: in-memory store, rule-based extractor, keyword "Ask"
+  data/mockSeed.ts         MOCK: fictional seed data, dates relative to today
+  store/                   React context holding ONE workspace's data + selectors
+  components/ui/           Button, Input/Textarea/Select/Field, Card, Dialog, Dropdown
+  components/              AppSidebar, AppHeader, PageHeader, MetricCard, StatusBadge, MemoryCard,
+                           CommitmentRow, SourceReference, ReviewProposalCard, EmptyState,
+                           LoadingState, ErrorState, ConfirmationDialog, ActivityList, Toaster
+  pages/                   Dashboard, Capture, review/ (Confirmation Inbox), Commitments, Memory,
+                           Ask, People, Settings
+```
+
+## Trust rules — how they are enforced
+
+| Rule | Where |
+|---|---|
+| Original capture is never edited | `Capture.content` stored verbatim; `SourceReference` renders it read-only, monospace, labelled "Original source" |
+| Proposals ≠ records | Separate `Proposal` type/collection; records are only created in `approveProposal` |
+| Rejection creates nothing | `rejectProposal` only changes proposal status and logs it |
+| No invented deadlines | Extractor resolves only explicit dates / today / tomorrow / "within N days". Weekdays, "next week", "end of month", "soon" → `ambiguous`; Approve is blocked until the reviewer picks a date or "no due date" |
+| No confidence percentages | Uncertainty is plain-language notes only |
+| Workspace isolation | `loadWorkspace` returns one workspace; store clears data on switch; every mutation checks `workspaceId`; detail pages show "not in this workspace" for foreign ids |
+| Ask is not AI | Keyword match over confirmed records; shows supporting records and terms nothing covers; "No supported answer" instead of guessing |
+| Activity history | Capture, approve (incl. edited fields), reject (incl. reason), status and due-date changes |
+
+## What is mocked
+
+- Extraction (`mockExtractor.ts`) — regex/heuristics, labelled "simulated" in the UI.
+- Persistence — in-memory per tab.
+- File capture — `.txt/.md/.csv` ≤ 1 MB are read in the browser; nothing is uploaded. PDF/Word/images are rejected with a message.
+- Voice capture — disabled, labelled "coming later".
+- Auth, sign-out, notifications delivery, reminders — not implemented; UI says so.
+- Settings → Prototype controls: toggle latency, force service failures, reset data.
+
+## Next backend integration steps
+
+1. **Auth & tenancy** — real users, workspace membership; enforce workspace scoping server-side (row-level security), not just in the client.
+2. **HTTP `NenaivuApi`** — implement the interface in `services/api.ts` against REST/RPC; swap in `services/index.ts`. Consider TanStack Query for caching.
+3. **Capture storage** — immutable capture table + object storage for files; virus scan; server-side text extraction for PDF/DOCX.
+4. **Extraction service** — LLM call returning the `Proposal` shape with `sourceExcerpt` spans and uncertainty notes; keep the ambiguous-date contract (server must reject approval of unresolved dates, as the mock does).
+5. **Duplicate detection** — embeddings/fuzzy match against open commitments and contacts.
+6. **Reminders** — scheduler that only fires for commitments with a human-confirmed `dueDate`.
+7. **Ask** — retrieval over confirmed records only, answers must cite record ids; return "unsupported" when retrieval is empty.
+8. **Audit log** — persist `ActivityEvent` server-side, append-only.
