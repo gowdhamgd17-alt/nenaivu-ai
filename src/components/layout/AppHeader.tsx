@@ -1,5 +1,8 @@
 import { Bell, Building, ChevronsUpDown, Inbox, Languages, ListChecks, LogOut, Menu, Plus, Search, Settings, UserRound } from 'lucide-react'
 import { useState } from 'react'
+import { ConfirmationDialog } from '@/components/ConfirmationDialog'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { maskIndianMobile } from '@/services/auth'
 import { Link, useNavigate } from 'react-router-dom'
 import { LANGS, type Lang } from '@/i18n/config'
 import { useI18n } from '@/i18n/I18nProvider'
@@ -199,8 +202,11 @@ function Notifications() {
 function UserMenu() {
   const { user } = useAppStore()
   const { t, lang, setLang } = useI18n()
+  const { signOut } = useAuth()
   const navigate = useNavigate()
+  const [confirmOut, setConfirmOut] = useState(false)
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
@@ -213,7 +219,7 @@ function UserMenu() {
       <DropdownMenuContent className="w-64">
         <div className="px-2.5 py-2">
           <p className="text-sm font-medium text-ink">{user?.name || t('user.notSignedIn')}</p>
-          <p className="text-xs text-ink-muted">{t('user.localOnly')}</p>
+          {user?.phone && <p className="tabular text-xs text-ink-muted">{t('auth.signedInAs', { phone: maskIndianMobile(user.phone) })}</p>}
         </div>
         <DropdownMenuSeparator />
         {/* Language is always reachable here, including on phones where the header button is hidden. */}
@@ -225,10 +231,19 @@ function UserMenu() {
         <DropdownMenuItem onSelect={() => navigate('/settings')}>
           <Settings /> {t('nav.settings')}
         </DropdownMenuItem>
-        <DropdownMenuItem disabled>
-          <LogOut /> {t('user.signOut')} <span className="ml-auto text-xs">{t('user.notAvailable')}</span>
+        <DropdownMenuItem onSelect={() => setConfirmOut(true)}>
+          <LogOut /> {t('auth.signOut')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    <ConfirmationDialog
+      open={confirmOut}
+      onOpenChange={setConfirmOut}
+      title={t('auth.signOutTitle')}
+      description={t('auth.signOutDesc')}
+      confirmLabel={t('auth.signOut')}
+      onConfirm={signOut}
+    />
+    </>
   )
 }

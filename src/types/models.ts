@@ -26,6 +26,8 @@ export interface User {
   name: string
   email: string
   initials: string
+  /** Verified mobile number in E.164 form, e.g. +919876543210. */
+  phone?: string
 }
 
 export type PartyKind = 'person' | 'organisation'

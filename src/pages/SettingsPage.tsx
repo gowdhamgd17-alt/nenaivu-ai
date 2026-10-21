@@ -1,4 +1,4 @@
-import { FlaskConical, RotateCcw } from 'lucide-react'
+import { FlaskConical, LogOut, Pencil, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import { ActivityList } from '@/components/ActivityList'
 import { ConfirmationDialog } from '@/components/ConfirmationDialog'
@@ -7,7 +7,10 @@ import { useToast } from '@/components/Toaster'
 import { Button } from '@/components/ui/button'
 import { SectionCard } from '@/components/ui/card'
 import { WorkspaceView } from '@/components/WorkspaceView'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { ProfileForm } from '@/features/auth/AuthScreens'
 import { AnswerLanguageSelect, VoiceLanguageSelect } from '@/features/voice/LanguageControls'
+import { auth, formatIndianMobile } from '@/services/auth'
 import { LANGS, type Lang } from '@/i18n/config'
 import { useI18n } from '@/i18n/I18nProvider'
 import { cn } from '@/lib/utils'
@@ -22,6 +25,9 @@ export function SettingsPage() {
   const [latency, setLatency] = useState(prototypeControls.latency)
   const [fail, setFail] = useState(prototypeControls.failNextRequests)
   const [resetOpen, setResetOpen] = useState(false)
+  const { session, profile, saveProfile, signOut } = useAuth()
+  const [editing, setEditing] = useState(false)
+  const [signOutOpen, setSignOutOpen] = useState(false)
 
   return (
     <>
@@ -43,12 +49,47 @@ export function SettingsPage() {
           </dl>
         </SectionCard>
 
-        <SectionCard title={t('settings.account')}>
-          <dl className="divide-y divide-line text-sm">
-            <Row label={t('settings.name')} value={user?.name || undefined} />
-            <Row label={t('settings.email')} value={user?.email || undefined} />
-            <Row label={t('settings.signIn')} value={t('settings.signInValue')} />
-          </dl>
+        <SectionCard
+          title={t('settings.account')}
+          action={
+            !editing && (
+              <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+                <Pencil aria-hidden /> {t('settings.editProfile')}
+              </Button>
+            )
+          }
+        >
+          {editing && profile ? (
+            <div className="p-5">
+              <ProfileForm
+                initial={profile}
+                submitLabel={t('common.save')}
+                onSave={(p) => {
+                  // Saving remounts the app with the new profile; the toast confirms after reload of the view.
+                  saveProfile(p)
+                  setEditing(false)
+                }}
+              />
+              <Button variant="ghost" size="sm" className="mt-2 w-full" onClick={() => setEditing(false)}>
+                {t('common.cancel')}
+              </Button>
+            </div>
+          ) : (
+            <>
+              <dl className="divide-y divide-line text-sm">
+                <Row label={t('settings.name')} value={user?.name || undefined} />
+                <Row label={t('settings.mobile')} value={session ? formatIndianMobile(session.phone) : undefined} />
+                <Row label={t('settings.business')} value={profile?.business || undefined} />
+                <Row label={t('settings.signIn')} value={auth.testMode ? t('auth.testModeTitle') : t('auth.mobileLabel')} />
+              </dl>
+              <div className="flex flex-col gap-3 border-t border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-ink-muted">{t('auth.dataNote')}</p>
+                <Button variant="secondary" size="sm" className="shrink-0 self-start sm:self-auto" onClick={() => setSignOutOpen(true)}>
+                  <LogOut aria-hidden /> {t('auth.signOut')}
+                </Button>
+              </div>
+            </>
+          )}
         </SectionCard>
 
         <SectionCard title={t('settings.prototype')} description={t('settings.prototypeDesc')} action={<FlaskConical className="size-4 shrink-0 text-primary" aria-hidden />}>
@@ -96,6 +137,14 @@ export function SettingsPage() {
         </SectionCard>
       </div>
 
+      <ConfirmationDialog
+        open={signOutOpen}
+        onOpenChange={setSignOutOpen}
+        title={t('auth.signOutTitle')}
+        description={t('auth.signOutDesc')}
+        confirmLabel={t('auth.signOut')}
+        onConfirm={signOut}
+      />
       <ConfirmationDialog
         open={resetOpen}
         onOpenChange={setResetOpen}

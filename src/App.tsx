@@ -14,6 +14,8 @@ import { MemoryDetailPage, MemoryListPage } from '@/pages/MemoryPages'
 import { PeopleListPage, PersonDetailPage } from '@/pages/PeoplePages'
 import { ReviewInboxPage } from '@/pages/review/ReviewInboxPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { AuthProvider } from '@/features/auth/AuthProvider'
+import { AuthGate } from '@/features/auth/AuthScreens'
 import { VoicePrefsProvider } from '@/features/voice/VoicePrefsProvider'
 import { I18nProvider, useI18n } from '@/i18n/I18nProvider'
 import { AppStoreProvider } from '@/store/AppStore'
@@ -78,9 +80,16 @@ export default function App() {
   return (
     <I18nProvider>
       <VoicePrefsProvider>
-        <AppStoreProvider>
-          <RouterProvider router={router} />
-        </AppStoreProvider>
+        <AuthProvider>
+          {/* Nothing below loads until a mobile number is verified; each login gets its own data. */}
+          <AuthGate>
+            {(userKey) => (
+              <AppStoreProvider key={userKey}>
+                <RouterProvider router={router} />
+              </AppStoreProvider>
+            )}
+          </AuthGate>
+        </AuthProvider>
       </VoicePrefsProvider>
     </I18nProvider>
   )

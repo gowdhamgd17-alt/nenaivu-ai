@@ -24,7 +24,7 @@ describe('dictionaries', () => {
   })
 
   it('Tamil strings are actually in Tamil (except intentional brand/format strings)', () => {
-    const allowedLatin = new Set(['common.listSeparator', 'capture.shortcut', 'dashboard.welcome', 'dashboard.welcomeNoName'])
+    const allowedLatin = new Set(['common.listSeparator', 'capture.shortcut', 'dashboard.welcome', 'dashboard.welcomeNoName', 'auth.mobilePlaceholder'])
     for (const [key, value] of Object.entries(ta)) {
       if (allowedLatin.has(key)) continue
       expect(/[஀-௿]/.test(value), key).toBe(true)

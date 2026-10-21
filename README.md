@@ -61,6 +61,13 @@ src/
 - Auth, sign-out, notifications delivery, reminders — not implemented; UI says so.
 - Settings → Prototype controls: toggle latency, force service failures, delete all data.
 
+## Sign-in (mobile number + OTP)
+
+- Screens: mobile number (India, +91) → 6-digit code → first-time profile (name, business). Language can be switched on every sign-in screen.
+- `src/services/auth/` defines `AuthProvider`. The current provider is **test mode**: no SMS is sent, the code is always `123456`, and the screens say so. It is not secure.
+- Each mobile number gets its own data on the device (`nenaivu.data.v1.<userId>` in localStorage). Signing out keeps the data; signing back in with the same number shows it again. Nothing syncs between devices yet.
+- To go live, implement `AuthProvider` with a real SMS service (Firebase phone auth, MSG91, Twilio Verify) and swap it in `src/services/auth/index.ts`. Cross-device data needs a server database.
+
 ## Tamil localization
 
 - **Dictionaries:** `src/i18n/messages/en.ts` is the source of keys; `ta.ts` is typed against it, so a missing key fails the build. Unit tests also check that every Tamil string keeps the English placeholders and tags.

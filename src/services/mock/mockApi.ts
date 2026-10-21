@@ -8,19 +8,32 @@
  * - Ask is keyword matching over confirmed records with templated English/Tamil
  *   answers (mockAsk.ts), not generative AI.
  */
-import { clearData, CURRENT_USER, loadData, saveData, type DataSnapshot } from '@/data/store'
+import { clearData, createEmptyData, loadData, saveData, type DataSnapshot } from '@/data/store'
 import { todayISO } from '@/lib/dates'
 import { createId, sleep } from '@/lib/utils'
-import type { ActivityEvent, ActivityParams, ActivityType, Capture, Commitment, ID, Memory, Person } from '@/types/models'
+import type { ActivityEvent, ActivityParams, ActivityType, Capture, Commitment, ID, Memory, Person, User } from '@/types/models'
 import { ServiceError, type NenaivuApi, type WorkspaceData } from '../api'
 import { answerQuestion } from './mockAsk'
 import { extractProposals } from './mockExtractor'
 
-let db: DataSnapshot = loadData()
+/** The signed-in user. Set by `openUserData` after login; nothing is readable before that. */
+let currentUser: User = { id: 'u_none', name: '', email: '', initials: '' }
+let workspaceName = ''
+let db: DataSnapshot = createEmptyData(currentUser, '')
+
+/**
+ * Switches the service to one user's data. Called on sign-in, so each mobile
+ * number only ever loads its own records.
+ */
+export function openUserData(user: User, wsName: string) {
+  currentUser = user
+  workspaceName = wsName
+  db = loadData(user, wsName)
+}
 
 /** Persist after every change so a reload keeps your data. */
 function persist() {
-  saveData(db)
+  saveData(currentUser.id, db)
 }
 
 export const prototypeControls = {
@@ -30,7 +43,7 @@ export const prototypeControls = {
 
 /** Deletes everything saved in this browser and starts empty again. */
 export function deleteAllData() {
-  db = clearData()
+  db = clearData(currentUser, workspaceName)
 }
 
 async function simulate(ms: number) {
@@ -50,7 +63,7 @@ function log(workspaceId: ID, type: ActivityType, params: ActivityParams, refs: 
     workspaceId,
     type,
     at: new Date().toISOString(),
-    actorId: CURRENT_USER.id,
+    actorId: currentUser.id,
     params,
     refs,
   }
@@ -63,7 +76,7 @@ const clone = <T,>(value: T): T => structuredClone(value)
 
 export const mockApi: NenaivuApi = {
   async getCurrentUser() {
-    return clone(CURRENT_USER)
+    return clone(currentUser)
   },
 
   async listWorkspaces() {
@@ -100,7 +113,7 @@ export const mockApi: NenaivuApi = {
       fileName,
       channel: kind === 'file' ? 'file' : 'quick_capture',
       createdAt: new Date().toISOString(),
-      createdBy: CURRENT_USER.id,
+      createdBy: currentUser.id,
     }
     const proposals = extractProposals({
       capture,
@@ -129,7 +142,7 @@ export const mockApi: NenaivuApi = {
     }
 
     const now = new Date().toISOString()
-    const common = { workspaceId, sourceCaptureId: proposal.captureId, confirmedAt: now, confirmedBy: CURRENT_USER.id }
+    const common = { workspaceId, sourceCaptureId: proposal.captureId, confirmedAt: now, confirmedBy: currentUser.id }
     let record: Awaited<ReturnType<NenaivuApi['approveProposal']>>['record']
 
     if (input.recordType === 'commitment') {
@@ -173,7 +186,7 @@ export const mockApi: NenaivuApi = {
 
     proposal.status = 'approved'
     proposal.resolvedAt = now
-    proposal.resolvedBy = CURRENT_USER.id
+    proposal.resolvedBy = currentUser.id
     proposal.resultingRecordId = record.value.id
 
     const name = 'title' in record.value ? record.value.title : record.value.name
@@ -192,7 +205,7 @@ export const mockApi: NenaivuApi = {
     if (proposal.status !== 'pending') throw new ServiceError('already_resolved')
     proposal.status = 'rejected'
     proposal.resolvedAt = new Date().toISOString()
-    proposal.resolvedBy = CURRENT_USER.id
+    proposal.resolvedBy = currentUser.id
     proposal.rejectionReason = reason?.trim() || undefined
     const activity = log(
       workspaceId,
