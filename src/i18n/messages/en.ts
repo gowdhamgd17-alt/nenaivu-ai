@@ -46,8 +46,6 @@ export const en = {
   'nav.sheetTitle': 'Navigation',
   'nav.sheetDesc': 'Main navigation',
 
-  'sidebar.prototype': 'Prototype',
-  'sidebar.prototypeNote': 'Mock data and simulated processing. Changes reset when the page reloads.',
 
   'header.search': 'Search',
   'header.capture': 'Capture',
@@ -61,7 +59,6 @@ export const en = {
 
   'workspace.switchLabel': 'Workspace: {name}. Switch workspace',
   'workspace.fallback': 'Workspace',
-  'workspace.menuTitle': 'Workspaces (mock)',
   'workspace.isolationNote': "Each workspace's data is loaded separately and never shown in another.",
 
   'language.label': 'Language',
@@ -82,8 +79,14 @@ export const en = {
   'notifications.note': 'Derived from your records. Reminders and push alerts are not connected in this prototype.',
 
   'user.menuLabel': 'Account menu for {name}',
-  'user.mockUser': 'mock user',
   'user.signOut': 'Sign out',
+  'sidebar.prototype': 'Prototype',
+  'sidebar.prototypeNote': 'No server or AI yet. Your data is saved in this browser only.',
+  'workspace.menuTitle': 'Workspace',
+  'user.notSignedIn': 'Not signed in',
+  'user.localOnly': 'Data is saved in this browser only',
+  'user.menuLabelAnon': 'Account menu',
+  'dashboard.welcomeNoName': '{greeting}. {date} · {workspace}',
   'user.notAvailable': 'Not available',
 
   // ── Generic states ────────────────────────────────────────────────────────
@@ -245,7 +248,6 @@ export const en = {
   'dashboard.recentMemories': 'Recent memories',
   'dashboard.noMemories': 'No confirmed memories yet',
   'dashboard.noMemoriesDesc': 'Approved memory proposals appear here.',
-  'dashboard.sampleNote': 'Sample data for demonstration — these businesses, people and events are fictional.',
 
   // ── Capture ───────────────────────────────────────────────────────────────
   'captureTabs.label': 'Capture and review',
@@ -253,13 +255,8 @@ export const en = {
   'captureTabs.inbox': 'Confirmation inbox',
   'capture.desc': 'Write down what happened. Nenaivu proposes records; you decide what is remembered.',
   'capture.label': 'What happened?',
-  'capture.placeholder':
-    'e.g. Call with Priya from Lotus Apparel — we promised revised samples by 28 Oct. She mentioned their budget is approved for Q4.',
+  'capture.placeholder': 'e.g. Call with a supplier — we promised to send the revised quote by 28 Oct. They confirmed payment terms of 30 days.',
   'capture.hint': 'Meeting notes, calls, emails, WhatsApp messages — paste as-is. The original is kept exactly as written.',
-  'capture.tryExample': 'Try an example:',
-  'capture.exampleCustomer': 'Customer call',
-  'capture.exampleSupplier': 'Supplier update',
-  'capture.exampleTamil': 'Tamil note',
   'capture.errEmpty': 'Write or paste something to capture.',
   'capture.errFileEmpty': 'This file is empty.',
   'capture.errShort': 'Add a little more detail — at least {min} characters.',
@@ -293,8 +290,7 @@ export const en = {
   'capture.step3Title': 'You confirm',
   'capture.step3': 'Nothing becomes memory or a commitment until you approve it.',
   'capture.prototypeTitle': 'Prototype processing',
-  'capture.prototypeNote':
-    'Extraction is simulated with simple rules, not AI. The rules read English notes; notes in Tamil are kept exactly as written and proposed as one memory. Unclear dates are flagged for you to resolve, never guessed. Data stays in this browser tab.',
+  'capture.prototypeNote': 'Extraction is simulated with simple rules, not AI. The rules read English notes; notes in Tamil are kept exactly as written and proposed as one memory. Unclear dates are flagged for you to resolve, never guessed. Your data is saved in this browser only.',
   'capture.stepSaving': 'Saving the original text',
   'capture.stepDrafting': 'Drafting proposals (simulated)',
   'capture.stepDone': '(done)',
@@ -483,7 +479,7 @@ export const en = {
   'ask.couldNotSearch': 'Could not search',
   'ask.thread': 'Questions and answers',
   'ask.inputLabel': 'Ask a question',
-  'ask.placeholder': 'e.g. What did we promise Lotus Apparel?',
+  'ask.placeholder': 'e.g. What did we promise this customer?',
   'ask.send': 'Send question',
   'ask.answerIn': 'Answer in {language}',
   'ask.detected': 'detected from your question',
@@ -564,7 +560,7 @@ export const en = {
   'settings.account': 'Account',
   'settings.email': 'Email',
   'settings.signIn': 'Sign-in',
-  'settings.signInValue': 'Not connected — the prototype uses a mock user.',
+  'settings.signInValue': 'Not available yet. Data is stored in this browser, not in an account.',
   'settings.language': 'Language & voice',
   'settings.languageDesc': 'Saved in this browser. Interface language and spoken answer language are set separately.',
   'settings.interfaceLanguage': 'Interface language',
@@ -574,15 +570,15 @@ export const en = {
   'settings.latencyHint': 'Adds realistic delays so loading states are visible.',
   'settings.fail': 'Make service requests fail',
   'settings.failHint': 'Capture, approval, Ask and reloads will return an error until switched off.',
-  'settings.reset': 'Reset sample data',
-  'settings.resetHint': 'Restores the original mock records in every workspace.',
-  'settings.resetButton': 'Reset',
+  'settings.reset': 'Delete all data',
+  'settings.resetHint': 'Permanently removes everything saved in this browser.',
+  'settings.resetButton': 'Delete all',
   'settings.activity': 'Activity history',
   'settings.activityDesc': 'Approvals, rejections and status changes in this workspace',
-  'settings.resetTitle': 'Reset sample data?',
-  'settings.resetDesc': 'Everything you captured, approved or changed in this session will be discarded.',
-  'settings.resetConfirm': 'Reset data',
-  'settings.resetToast': 'Sample data restored.',
+  'settings.resetTitle': 'Delete all data?',
+  'settings.resetDesc': 'All captures, proposals, memories, commitments, contacts and history saved in this browser will be removed. This cannot be undone.',
+  'settings.resetConfirm': 'Delete all data',
+  'settings.resetToast': 'All data deleted.',
 } as const
 
 export type MessageKey = keyof typeof en

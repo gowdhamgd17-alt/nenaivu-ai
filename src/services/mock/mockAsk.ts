@@ -47,15 +47,6 @@ const TA_GLOSSARY: [string, string[]][] = [
   ['வாக்குறுதி', ['open']],
   ['ரீஃபண்ட', ['refund']],
   ['கொள்கை', ['policy']],
-  ['லோட்டஸ', ['lotus']],
-  ['நார்த்விண்ட', ['northwind']],
-  ['பிரியா', ['priya']],
-  ['அர்ஜுன', ['arjun']],
-  ['கவிதா', ['kavitha']],
-  ['ராகுல', ['rahul']],
-  ['சுந்தர', ['sundar']],
-  ['ஆனந்த', ['anand']],
-  ['ப்ரூஹவுஸ', ['brewhaus']],
 ]
 
 interface Term {

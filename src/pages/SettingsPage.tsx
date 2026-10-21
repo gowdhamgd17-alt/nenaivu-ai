@@ -11,7 +11,7 @@ import { AnswerLanguageSelect, VoiceLanguageSelect } from '@/features/voice/Lang
 import { LANGS, type Lang } from '@/i18n/config'
 import { useI18n } from '@/i18n/I18nProvider'
 import { cn } from '@/lib/utils'
-import { prototypeControls, resetMockData } from '@/services/mock/mockApi'
+import { deleteAllData, prototypeControls } from '@/services/mock/mockApi'
 import { useAppStore } from '@/store/AppStore'
 
 export function SettingsPage() {
@@ -38,15 +38,15 @@ export function SettingsPage() {
         <SectionCard title={t('settings.workspace')} description={t('settings.workspaceDesc')}>
           <dl className="divide-y divide-line text-sm">
             <Row label={t('settings.name')} value={ws?.name} />
-            <Row label={t('settings.description')} value={ws?.industry} />
+            <Row label={t('settings.description')} value={ws?.industry || undefined} />
             <Row label={t('settings.isolation')} value={t('settings.isolationValue')} />
           </dl>
         </SectionCard>
 
         <SectionCard title={t('settings.account')}>
           <dl className="divide-y divide-line text-sm">
-            <Row label={t('settings.name')} value={user?.name} />
-            <Row label={t('settings.email')} value={user?.email} />
+            <Row label={t('settings.name')} value={user?.name || undefined} />
+            <Row label={t('settings.email')} value={user?.email || undefined} />
             <Row label={t('settings.signIn')} value={t('settings.signInValue')} />
           </dl>
         </SectionCard>
@@ -78,7 +78,7 @@ export function SettingsPage() {
                 <p className="text-sm font-medium text-ink">{t('settings.reset')}</p>
                 <p className="text-xs text-ink-muted">{t('settings.resetHint')}</p>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => setResetOpen(true)} className="self-start sm:self-auto">
+              <Button variant="danger-outline" size="sm" onClick={() => setResetOpen(true)} className="self-start sm:self-auto">
                 <RotateCcw aria-hidden /> {t('settings.resetButton')}
               </Button>
             </div>
@@ -104,7 +104,7 @@ export function SettingsPage() {
         confirmLabel={t('settings.resetConfirm')}
         tone="danger"
         onConfirm={() => {
-          resetMockData()
+          deleteAllData()
           reload()
           toast({ tone: 'neutral', message: t('settings.resetToast') })
         }}

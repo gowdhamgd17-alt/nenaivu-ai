@@ -27,7 +27,7 @@ export function findPerson(data: WorkspaceData, id?: ID): Person | undefined {
   return id ? data.people.find((p) => p.id === id) : undefined
 }
 
-/** "Priya Raman · Lotus Apparel" */
+/** "Person name · Organisation" */
 export function personLabel(data: WorkspaceData, id?: ID) {
   const p = findPerson(data, id)
   if (!p) return undefined

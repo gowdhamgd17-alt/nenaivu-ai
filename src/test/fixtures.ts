@@ -1,9 +1,11 @@
 /**
- * MOCK SEED DATA — fictional businesses, people and events for the prototype.
+ * TEST FIXTURES ONLY — fictional businesses, people and events used by unit tests.
+ * Not imported by the app, so none of this ships to users.
  * Dates are generated relative to "today" so overdue / due-today / upcoming
  * states always render. Nothing here comes from a real system.
  */
 import { addDays, timestampDaysAgo, todayISO } from '@/lib/dates'
+import type { DataSnapshot } from '@/data/store'
 import type {
   ActivityEvent,
   Capture,
@@ -15,25 +17,9 @@ import type {
   Workspace,
 } from '@/types/models'
 
-export interface DataSnapshot {
-  workspaces: Workspace[]
-  users: User[]
-  people: Person[]
-  captures: Capture[]
-  proposals: Proposal[]
-  memories: Memory[]
-  commitments: Commitment[]
-  activity: ActivityEvent[]
-}
+const CURRENT_USER: User = { id: 'u_test', name: 'Test User', email: '', initials: 'TU' }
 
-export const CURRENT_USER: User = {
-  id: 'u_anitha',
-  name: 'Anitha Kumar',
-  email: 'anitha@example.com',
-  initials: 'AK',
-}
-
-export function buildMockSeed(): DataSnapshot {
+export function buildFixtureData(): DataSnapshot {
   const today = todayISO()
   const me = CURRENT_USER.id
   const W1 = 'ws_meenakshi'

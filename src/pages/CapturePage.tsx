@@ -17,21 +17,6 @@ const MIN_CHARS = 10
 const MAX_FILE_BYTES = 1_000_000
 const SUPPORTED_EXT = ['txt', 'md', 'csv']
 
-/** Example notes are sample business content, so they are not translated with the UI. */
-const EXAMPLES = [
-  {
-    labelKey: 'capture.exampleCustomer',
-    text: 'Call with Priya Raman from Lotus Apparel. She confirmed the spring order will be 1,500 m, not 1,200 m. We need to send the revised quote tomorrow. Priya will share the final colour cards next week.',
-  },
-  {
-    labelKey: 'capture.exampleSupplier',
-    text: 'Spoke to Arjun at Northwind Logistics. The corrected freight invoice is delayed. He promised to send it within 3 days.',
-  },
-  {
-    labelKey: 'capture.exampleTamil',
-    text: 'அர்ஜுனுடன் பேசினேன். திருத்திய சரக்குக் கட்டண இன்வாய்ஸ் இன்னும் வரவில்லை. அடுத்த வாரம் அனுப்புவதாகச் சொன்னார்.',
-  },
-] as const
 
 type Phase = 'idle' | 'saving' | 'extracting' | 'error'
 
@@ -179,21 +164,6 @@ export function CapturePage() {
                     <p id={`${ids.text}-hint`} className="text-xs text-ink-muted">
                       {t('capture.hint')}
                     </p>
-                  )}
-                  {!text && !busy && (
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <span className="text-xs text-ink-muted">{t('capture.tryExample')}</span>
-                      {EXAMPLES.map((ex) => (
-                        <button
-                          key={ex.labelKey}
-                          type="button"
-                          onClick={() => setText(ex.text)}
-                          className="rounded-full border border-line px-2.5 py-1 text-xs text-ink-muted hover:border-line-strong hover:text-ink"
-                        >
-                          {t(ex.labelKey)}
-                        </button>
-                      ))}
-                    </div>
                   )}
                 </div>
               ) : (

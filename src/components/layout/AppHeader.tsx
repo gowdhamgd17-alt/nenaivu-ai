@@ -1,4 +1,4 @@
-import { Bell, Building, ChevronsUpDown, Inbox, Languages, ListChecks, LogOut, Menu, Plus, Search, Settings } from 'lucide-react'
+import { Bell, Building, ChevronsUpDown, Inbox, Languages, ListChecks, LogOut, Menu, Plus, Search, Settings, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LANGS, type Lang } from '@/i18n/config'
@@ -142,7 +142,7 @@ function WorkspaceSwitcher() {
             <DropdownMenuRadioItem key={w.id} value={w.id}>
               <div className="min-w-0">
                 <p className="truncate">{w.name}</p>
-                <p className="truncate text-xs text-ink-muted">{w.industry}</p>
+                {w.industry && <p className="truncate text-xs text-ink-muted">{w.industry}</p>}
               </div>
             </DropdownMenuRadioItem>
           ))}
@@ -205,17 +205,15 @@ function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button
           className="flex size-9 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-semibold text-white"
-          aria-label={t('user.menuLabel', { name: user?.name ?? '' })}
+          aria-label={user?.name ? t('user.menuLabel', { name: user.name }) : t('user.menuLabelAnon')}
         >
-          {user?.initials ?? '··'}
+          {user?.initials || <UserRound className="size-4" aria-hidden />}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64">
         <div className="px-2.5 py-2">
-          <p className="text-sm font-medium text-ink">{user?.name}</p>
-          <p className="text-xs text-ink-muted">
-            {user?.email} · {t('user.mockUser')}
-          </p>
+          <p className="text-sm font-medium text-ink">{user?.name || t('user.notSignedIn')}</p>
+          <p className="text-xs text-ink-muted">{t('user.localOnly')}</p>
         </div>
         <DropdownMenuSeparator />
         {/* Language is always reachable here, including on phones where the header button is hidden. */}

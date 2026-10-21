@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildMockSeed } from '@/data/mockSeed'
+import { buildFixtureData } from '@/test/fixtures'
 import { detectTextLanguage, isMostlyTamil } from '@/lib/language'
 import { answerQuestion } from './mockAsk'
 
-const seed = buildMockSeed()
+const seed = buildFixtureData()
 const ws = 'ws_meenakshi'
 const ctx = {
   memories: seed.memories.filter((m) => m.workspaceId === ws),

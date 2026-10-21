@@ -2,7 +2,7 @@
 
 Business-memory app: **Capture → Understand → Confirm → Remember → Follow Through → Recall.**
 
-This is a functional **frontend prototype**. There is no backend and no AI. All data is fictional mock data held in memory; it resets on reload.
+This is a functional **frontend prototype**. There is no backend and no AI. The app starts **empty**; everything you enter is saved in your browser's localStorage (`src/data/store.ts`), so it survives reloads but stays on that one browser and device. Settings → Delete all data clears it. Sample data used by unit tests lives in `src/test/fixtures.ts` and is not shipped.
 
 ## Run
 
@@ -28,7 +28,8 @@ src/
   services/api.ts          NenaivuApi interface — the only contract the UI uses
   services/index.ts        Chooses the implementation (currently mockApi)
   services/mock/           MOCK: in-memory store, rule-based extractor, keyword "Ask"
-  data/mockSeed.ts         MOCK: fictional seed data, dates relative to today
+  data/store.ts            Browser storage for your data (starts empty)
+  test/fixtures.ts         Fictional sample data for unit tests only
   store/                   React context holding ONE workspace's data + selectors
   components/ui/           Button, Input/Textarea/Select/Field, Card, Dialog, Dropdown
   components/              AppSidebar, AppHeader, PageHeader, MetricCard, StatusBadge, MemoryCard,
@@ -54,11 +55,11 @@ src/
 ## What is mocked
 
 - Extraction (`mockExtractor.ts`) — regex/heuristics, labelled "simulated" in the UI.
-- Persistence — in-memory per tab.
+- Persistence — browser localStorage only; no server, no sync between devices.
 - File capture — `.txt/.md/.csv` ≤ 1 MB are read in the browser; nothing is uploaded. PDF/Word/images are rejected with a message.
 - Voice capture — disabled, labelled "coming later".
 - Auth, sign-out, notifications delivery, reminders — not implemented; UI says so.
-- Settings → Prototype controls: toggle latency, force service failures, reset data.
+- Settings → Prototype controls: toggle latency, force service failures, delete all data.
 
 ## Tamil localization
 

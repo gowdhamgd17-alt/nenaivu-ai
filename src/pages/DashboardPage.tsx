@@ -27,7 +27,7 @@ export function DashboardPage() {
     <>
       <PageHeader
         title={t('nav.overview')}
-        description={t('dashboard.welcome', {
+        description={t(user?.name ? 'dashboard.welcome' : 'dashboard.welcomeNoName', {
           greeting: t(greetingKey(now.getHours())),
           name: user?.name.split(' ')[0] ?? '',
           date: fmt.longDate(now),
@@ -158,7 +158,6 @@ export function DashboardPage() {
                 )}
               </section>
 
-              <p className="text-xs text-ink-faint">{t('dashboard.sampleNote')}</p>
             </div>
           )
         }}

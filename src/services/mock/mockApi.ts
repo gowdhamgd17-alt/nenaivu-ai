@@ -1,13 +1,14 @@
 /**
- * MOCK SERVICE — in-memory implementation of `NenaivuApi`.
+ * PROTOTYPE SERVICE — browser-only implementation of `NenaivuApi`.
  *
- * - Data lives in this browser tab only and resets on reload.
+ * - Starts empty. Everything you add is saved in this browser's localStorage
+ *   (see data/store.ts); there is no server yet.
  * - Latency is simulated; failures can be forced from Settings → Prototype controls.
  * - Extraction is rule-based (see mockExtractor.ts), not AI.
  * - Ask is keyword matching over confirmed records with templated English/Tamil
  *   answers (mockAsk.ts), not generative AI.
  */
-import { buildMockSeed, CURRENT_USER, type DataSnapshot } from '@/data/mockSeed'
+import { clearData, CURRENT_USER, loadData, saveData, type DataSnapshot } from '@/data/store'
 import { todayISO } from '@/lib/dates'
 import { createId, sleep } from '@/lib/utils'
 import type { ActivityEvent, ActivityParams, ActivityType, Capture, Commitment, ID, Memory, Person } from '@/types/models'
@@ -15,15 +16,21 @@ import { ServiceError, type NenaivuApi, type WorkspaceData } from '../api'
 import { answerQuestion } from './mockAsk'
 import { extractProposals } from './mockExtractor'
 
-let db: DataSnapshot = buildMockSeed()
+let db: DataSnapshot = loadData()
+
+/** Persist after every change so a reload keeps your data. */
+function persist() {
+  saveData(db)
+}
 
 export const prototypeControls = {
   latency: true,
   failNextRequests: false,
 }
 
-export function resetMockData() {
-  db = buildMockSeed()
+/** Deletes everything saved in this browser and starts empty again. */
+export function deleteAllData() {
+  db = clearData()
 }
 
 async function simulate(ms: number) {
@@ -48,6 +55,7 @@ function log(workspaceId: ID, type: ActivityType, params: ActivityParams, refs: 
     refs,
   }
   db.activity = [event, ...db.activity]
+  persist()
   return event
 }
 
